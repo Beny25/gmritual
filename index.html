@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GMbandit Ritual</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0052ff, #00b4ff);
+      color: white;
+      text-align: center;
+      padding: 40px;
+    }
+    button {
+      padding: 12px 25px;
+      background: white;
+      color: #0052ff;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      margin: 10px;
+    }
+    button:hover {
+      opacity: 0.85;
+    }
+    input {
+      padding: 10px;
+      width: 70%;
+      border-radius: 8px;
+      border: 1px solid #eee;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🔥 GMbandit Onchain Ritual 🔥</h1>
+  <p>The simplest onchain ritual experiment on Base 🔵</p>
+
+  <button id="connectBtn">Connect Wallet</button>
+
+  <br><br>
+
+  <input id="msgInput" placeholder="Type your ritual message (GM/GN/???)"/>
+
+  <br><br>
+
+  <button id="ritualBtn">Perform Ritual</button>
+
+  <p id="status"></p>
+
+<script>
+  let provider, signer;
+  const contractAddress = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+
+  const ABI = [
+    "function performRitual(string calldata newMessage) payable"
+  ];
+
+  document.getElementById("connectBtn").onclick = async () => {
+    if (!window.ethereum) {
+      alert("No wallet found. Use Base wallet or MetaMask");
+      return;
+    }
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    document.getElementById("connectBtn").innerText = "Wallet connected ✅";
+  };
+
+  document.getElementById("ritualBtn").onclick = async () => {
+    if (!signer) return alert("Connect wallet first!");
+    const message = document.getElementById("msgInput").value.trim() || "GM Ritual!";
+    const fee = "330000000000"; // 0.00000033 ETH
+    try {
+      document.getElementById("status").innerText = "⏳ Sending ritual TX...";
+      const contract = new ethers.Contract(contractAddress, ABI, signer);
+      const tx = await contract.performRitual(message, { value: fee });
+      await tx.wait();
+      document.getElementById("status").innerText = "✅ Ritual completed!";
+    } catch (err) {
+      document.getElementById("status").innerText = "❌ Error: " + err.message;
+    }
+  };
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.min.js"></script>
+
+</body>
+</html>
