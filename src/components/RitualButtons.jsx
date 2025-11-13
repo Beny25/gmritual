@@ -1,53 +1,100 @@
-import { useSigner } from "wagmi";
+import { useState, useEffect } from "react";
+import { writeContract, readContract } from "@wagmi/core";
 import CooldownTimer from "./CooldownTimer";
-import { runRitual } from "../logic/ritual";
-import { getUTCDate } from "../logic/ritual";
+import { CONTRACT, ABI } from "../logic/constants";
+import { config } from "../wagmi";
 
-export default function RitualButtons({ isConnected, address }) {
-  const { data: signer } = useSigner();
+export default function RitualButtons({ address, isConnected }) {
+  const [cooldowns, setCooldowns] = useState({
+    GM: null,
+    GN: null,
+    SLEEP: null,
+  });
 
-  const disabled = (type) => {
-    if (!address) return true;
-    const today = getUTCDate();
-    return localStorage.getItem(`cool_${type}_${address}`) === today;
-  };
+  // Load cooldown from localStorage
+  useEffect(() => {
+    if (!address) return;
+    const keys = ["GM", "GN", "SLEEP"];
+    const cd = {};
+    keys.forEach(k => {
+      const saved = localStorage.getItem("cool_" + k + "_" + address);
+      cd[k] = saved ? new Date(saved) : null;
+    });
+    setCooldowns(cd);
+  }, [address]);
 
-  if (!isConnected) return <p className="connect-msg">Connect wallet to begin</p>;
+
+  async function run(type, message) {
+    if (!isConnected) return alert("Connect wallet first");
+
+    const todayUTC = new Date().toISOString().slice(0, 10);
+    const saved = localStorage.getItem("cool_" + type + "_" + address);
+    if (saved === todayUTC)
+      return alert("You already did " + type + " today");
+
+    try {
+      const fee = await readContract({
+        address: CONTRACT,
+        abi: ABI,
+        functionName: "fee",
+        config,
+      });
+
+      const tx = await writeContract({
+        address: CONTRACT,
+        abi: ABI,
+        functionName: "performRitual",
+        args: [message],
+        value: fee,
+        config,
+      });
+
+      alert("TX sent, wait...");
+
+      // save cooldown
+      localStorage.setItem("cool_" + type + "_" + address, todayUTC);
+      setCooldowns(prev => ({
+        ...prev,
+        [type]: new Date(),
+      }));
+
+      alert(type + " ritual complete!");
+    } catch (err) {
+      console.error(err);
+      alert("Ritual failed");
+    }
+  }
 
   return (
-    <>
-      <div className="center-btn">
-        <button
-          className={`btn gm ${disabled("GM") ? "disabled" : ""}`}
-          disabled={disabled("GM")}
-          onClick={() => runRitual(signer, "GM", "GM ⚡", address)}
-        >
-          GM Ritual 🌞
-        </button>
-        <CooldownTimer type="GM" address={address} />
-      </div>
+    <div className="row">
+      <button
+        className="btn gm"
+        disabled={!isConnected || cooldowns.GM}
+        onClick={() => run("GM", "GM ⚡")}
+      >
+        GM Ritual 🌞
+      </button>
 
-      <div className="center-btn">
-        <button
-          className={`btn gn ${disabled("GN") ? "disabled" : ""}`}
-          disabled={disabled("GN")}
-          onClick={() => runRitual(signer, "GN", "GN 🌙", address)}
-        >
-          GN Ritual 🌙
-        </button>
-        <CooldownTimer type="GN" address={address} />
-      </div>
+      <button
+        className="btn gn"
+        disabled={!isConnected || cooldowns.GN}
+        onClick={() => run("GN", "GN 🌙")}
+      >
+        GN Ritual 🌙
+      </button>
 
-      <div className="center-btn">
-        <button
-          className={`btn sleep ${disabled("SLEEP") ? "disabled" : ""}`}
-          disabled={disabled("SLEEP")}
-          onClick={() => runRitual(signer, "SLEEP", "GoSleep 😴", address)}
-        >
-          GoSleep 😴
-        </button>
-        <CooldownTimer type="SLEEP" address={address} />
-      </div>
-    </>
+      <button
+        className="btn sleep"
+        disabled={!isConnected || cooldowns.SLEEP}
+        onClick={() => run("SLEEP", "GoSleep 😴")}
+      >
+        GoSleep 😴
+      </button>
+
+      {/* Show cooldown timer */}
+      {isConnected && (
+        <CooldownTimer cooldowns={cooldowns} />
+      )}
+    </div>
   );
 }
