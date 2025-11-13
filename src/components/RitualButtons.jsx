@@ -17,21 +17,28 @@ export default function RitualButtons() {
   const [contract, setContract] = useState(null);
 
   useEffect(() => {
-    if (walletClient && isConnected) {
-      const provider = new ethers.BrowserProvider(walletClient);
-      provider.getSigner().then((signer) => {
-        const c = new ethers.Contract(CONTRACT, ABI, signer);
-        setContract(c);
+    if (!walletClient || !isConnected) return;
 
-        c.fee().then((f) => setFee(f));
-      });
-    }
+    // ⭐ Convert viem walletClient → ethers signer
+    const ethersProvider = new ethers.BrowserProvider(walletClient);
+    ethersProvider.getSigner().then(async (signer) => {
+      const c = new ethers.Contract(CONTRACT, ABI, signer);
+      setContract(c);
+
+      try {
+        const f = await c.fee();
+        setFee(f);
+      } catch (err) {
+        console.error("Fee read failed:", err);
+      }
+    });
+
   }, [walletClient, isConnected]);
 
   if (!isConnected) return null;
 
   async function sendRitual(type, message) {
-    if (!contract || !fee) {
+    if (!contract) {
       alert("Contract not ready");
       return;
     }
@@ -43,35 +50,18 @@ export default function RitualButtons() {
 
       alert(`${type} ritual done!`);
     } catch (err) {
-      console.error(err);
+      console.error("TX ERROR:", err);
       alert("TX failed!");
     }
   }
 
   return (
     <div style={{ marginTop: 20 }}>
-      <button
-        style={{ margin: 10 }}
-        onClick={() => sendRitual("GM", "GM ⚡")}
-      >
-        GM Ritual 🌞
-      </button>
+      <button onClick={() => sendRitual("GM", "GM ⚡")}>GM Ritual 🌞</button>
+      <button onClick={() => sendRitual("GN", "GN 🌙")}>GN Ritual 🌙</button>
+      <button onClick={() => sendRitual("SLEEP", "GoSleep 😴")}>GoSleep 😴</button>
 
-      <button
-        style={{ margin: 10 }}
-        onClick={() => sendRitual("GN", "GN 🌙")}
-      >
-        GN Ritual 🌙
-      </button>
-
-      <button
-        style={{ margin: 10 }}
-        onClick={() => sendRitual("SLEEP", "GoSleep 😴")}
-      >
-        GoSleep 😴
-      </button>
-
-      <p style={{ marginTop: 10, opacity: 0.7 }}>
+      <p style={{ marginTop: 10 }}>
         Ritual Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
       </p>
     </div>
