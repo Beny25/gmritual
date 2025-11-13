@@ -1,120 +1,117 @@
-import { useState, useEffect } from "react";
-import { useAccount, useDisconnect } from "wagmi";
-import { ethers } from "ethers";
-import { CONTRACT_ABI, CONTRACT_ADDRESS } from "./logic/contract";
+import { WagmiProvider, useAccount, useDisconnect, usePublicClient, useWalletClient } from 'wagmi'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { config } from './wagmi'
+import { CONTRACT, ABI } from "./logic/contract"
+import { useState } from "react"
+import { parseEther } from "viem"
 
-export default function App() {
-  const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
+const queryClient = new QueryClient()
 
-  const [signer, setSigner] = useState(null);
-  const [fee, setFee] = useState(null);
-  const [loading, setLoading] = useState(false);
+function RitualApp() {
 
-  // ====== Load signer from provider ======
-  useEffect(() => {
-    async function loadSigner() {
-      if (!window.ethereum || !isConnected) return;
+  const { address, isConnected } = useAccount()
+  const { disconnect } = useDisconnect()
+  const publicClient = usePublicClient()
+  const { data: walletClient } = useWalletClient()
 
-      try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const s = await provider.getSigner();
-        setSigner(s);
+  const [loading, setLoading] = useState(false)
+  const [fee, setFee] = useState(null)
 
-        const c = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, s);
-        const feeVal = await c.fee();
-        setFee(ethers.formatEther(feeVal));
-      } catch (e) {
-        console.error("Signer error:", e);
+  // Load fee
+  async function loadFee() {
+    const f = await publicClient.readContract({
+      address: CONTRACT,
+      abi: ABI,
+      functionName: "fee"
+    })
+    setFee(f)
+  }
+
+  if (!fee) loadFee()
+
+  // ============ RITUAL FUNCTION (VIEM SAFE MODE) ===============
+  async function ritual(type, message) {
+    if (!walletClient) return alert("Wallet not connected")
+
+    setLoading(true)
+
+    try {
+      // 1. Simulate TX (tidak kirim dulu)
+      const simulation = await publicClient.simulateContract({
+        address: CONTRACT,
+        abi: ABI,
+        functionName: "performRitual",
+        args: [message],
+        value: fee
+      })
+
+      // 2. Kalau simulasi berhasil → kirim TX
+      const hash = await walletClient.writeContract(simulation.request)
+
+      alert("TX sent! waiting confirmation…")
+
+      await publicClient.waitForTransactionReceipt({ hash })
+
+      alert(`${type} ritual completed!`)
+    }
+    catch (err) {
+      console.log(err)
+
+      if (String(err).includes("insufficient")) {
+        alert("Not enough ETH to pay gas fee.")
+      } else {
+        alert("TX failed: " + err.message)
       }
     }
 
-    loadSigner();
-  }, [isConnected]);
-
-  // ====== Ritual TX ======
-  async function perform(type, msg) {
-    if (!signer) return alert("Signer not ready");
-
-    setLoading(true);
-    try {
-      const c = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-      const f = await c.fee();
-
-      const tx = await c.performRitual(msg, { value: f });
-      await tx.wait();
-
-      alert(`${type} Ritual Complete!`);
-    } catch (err) {
-      console.error(err);
-      alert("TX failed!");
-    }
-    setLoading(false);
+    setLoading(false)
   }
 
-  // ====== UI ======
+  // =================== UI =======================
   return (
     <div style={{ padding: 40, textAlign: "center" }}>
+
       <h1>GM Ritual Dashboard ⚡</h1>
 
-      {!isConnected && (
-        <p style={{ opacity: 0.7 }}>Connect wallet from the button above.</p>
+      {!isConnected && <p>Connect wallet first</p>}
+      {isConnected && <p>Connected: {address.slice(0,6)}…{address.slice(-4)}</p>}
+
+      {isConnected && (
+        <button onClick={() => disconnect()} style={{ marginBottom: 20 }}>
+          Disconnect
+        </button>
       )}
 
       {isConnected && (
-        <>
-          <p>Connected: {address.slice(0, 6)}...{address.slice(-4)}</p>
-
-          <button onClick={() => disconnect()} style={btnRed}>
-            Disconnect
+        <div>
+          <button disabled={loading} onClick={() => ritual("GM","GM ⚡")}>
+            GM Ritual 🌞
           </button>
 
-          <div style={{ marginTop: 40 }}>
-            <button
-              style={btn}
-              disabled={loading}
-              onClick={() => perform("GM", "GM ⚡")}
-            >
-              GM Ritual 🌞
-            </button>
+          <button disabled={loading} onClick={() => ritual("GN","GN 🌙")}>
+            GN Ritual 🌙
+          </button>
 
-            <button
-              style={btn}
-              disabled={loading}
-              onClick={() => perform("GN", "GN 🌙")}
-            >
-              GN Ritual 🌙
-            </button>
-
-            <button
-              style={btn}
-              disabled={loading}
-              onClick={() => perform("SLEEP", "GoSleep 😴")}
-            >
-              GoSleep 😴
-            </button>
-          </div>
-
-          <p style={{ marginTop: 20, opacity: 0.6 }}>
-            Ritual Fee: {fee ?? "..."} ETH
-          </p>
-        </>
+          <button disabled={loading} onClick={() => ritual("SLEEP","GoSleep 😴")}>
+            GoSleep 😴
+          </button>
+        </div>
       )}
+
+      <p style={{ marginTop: 20, opacity: 0.7 }}>
+        Ritual fee: {fee ? Number(fee) / 1e18 : "..."} ETH
+      </p>
+
     </div>
-  );
+  )
 }
 
-const btn = {
-  padding: "14px 20px",
-  margin: 10,
-  borderRadius: 12,
-  background: "#2563eb",
-  color: "white",
-  fontWeight: 600,
-  minWidth: 160,
-};
-
-const btnRed = {
-  ...btn,
-  background: "#ef4444",
-};
+export default function App() {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <RitualApp />
+      </QueryClientProvider>
+    </WagmiProvider>
+  )
+      }
