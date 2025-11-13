@@ -14,6 +14,7 @@ export const config = createConfig({
         url: "https://gmritual.vercel.app",
         icons: ["https://gmritual.vercel.app/icon.png"],
       },
+      showQrModal: true,
     }),
   ],
   transports: {
