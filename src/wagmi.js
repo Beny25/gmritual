@@ -7,10 +7,10 @@ export const config = createConfig({
   connectors: [
     injected(),
     walletConnect({
-      projectId: import.meta.env.VITE_WC_PROJECT_ID,
+      projectId: import.meta.env.VITE_WC_PROJECT_ID, 
       metadata: {
-        name: "GMRitual",
-        description: "GM Ritual App",
+        name: "GM Ritual",
+        description: "GM Ritual Dashboard on Base",
         url: "https://gmritual.vercel.app",
         icons: ["https://gmritual.vercel.app/icon.png"]
       }
@@ -20,4 +20,3 @@ export const config = createConfig({
     [base.id]: http("https://mainnet.base.org"),
   },
 })
-
