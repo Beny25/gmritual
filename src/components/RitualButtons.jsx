@@ -17,7 +17,6 @@ export default function RitualButtons() {
 
   if (!isConnected) return null;
 
-  // auto reset setiap render
   autoReset(address);
 
   async function sendRitual(type, msg) {
@@ -27,17 +26,16 @@ export default function RitualButtons() {
     }
 
     try {
-      // 🔥 TX benar—modal akan muncul
       const txHash = await writeContractAsync({
         address: CONTRACT,
         abi: ABI,
         functionName: "performRitual",
         args: [msg],
         value: BigInt(fee.toString()),
-        gas: BigInt(250000),
+        gas: BigInt(250000)
       });
 
-      // 🔥 Baru set cooldown setelah TX terkirim sukses
+      // TX sukses -> baru cooldown
       mark(type, address);
     } catch (err) {
       console.error(err);
@@ -46,10 +44,10 @@ export default function RitualButtons() {
   }
 
   return (
-    <>
-
-      {/* 🔵 RITUAL BUTTONS */}
-      <div className="row" style={{ marginTop: 4 }}>
+    <div style={{ marginTop: 20 }}>
+      
+      {/* 🔥 BUTTON ROW */}
+      <div className="row" style={{ marginBottom: 10 }}>
         <button
           className={`btn gm ${isCooldown("GM", address) ? "disabled" : ""}`}
           onClick={() => sendRitual("GM", "GM ⚡")}
@@ -72,16 +70,16 @@ export default function RitualButtons() {
         </button>
       </div>
 
-      {/* 🔵 FEE TEXT */}
-      <div style={{ opacity: 0.7, marginTop: 10 }}>
+      {/* 🔵 FEE */}
+      <div style={{ opacity: 0.7, marginBottom: 6 }}>
         Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
       </div>
 
-      {/* 🔥🔥 COOLDOWN TIMER ADA DI BAWAH TOMBOL 🔥🔥 */}
-      <div style={{ marginTop: 6 }}>
+      {/* 🔥🔥 FIXED → COOL DOWN ALWAYS BELOW BUTTONS */}
+      <div style={{ marginTop: 6, textAlign: "center" }}>
         <CooldownTimer />
       </div>
 
-    </>
+    </div>
   );
 }
