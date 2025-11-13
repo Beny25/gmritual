@@ -1,100 +1,79 @@
+import { useAccount, useWalletClient } from "wagmi";
 import { useState, useEffect } from "react";
-import { writeContract, readContract } from "@wagmi/core";
-import CooldownTimer from "./CooldownTimer";
-import { CONTRACT, ABI } from "../logic/constants";
-import { config } from "../wagmi";
+import { ethers } from "ethers";
 
-export default function RitualButtons({ address, isConnected }) {
-  const [cooldowns, setCooldowns] = useState({
-    GM: null,
-    GN: null,
-    SLEEP: null,
-  });
+const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
 
-  // Load cooldown from localStorage
+const ABI = [
+  "function performRitual(string calldata newMessage) external payable",
+  "function fee() view returns (uint256)"
+];
+
+export default function RitualButtons() {
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+
+  const [fee, setFee] = useState(null);
+  const [contract, setContract] = useState(null);
+
   useEffect(() => {
-    if (!address) return;
-    const keys = ["GM", "GN", "SLEEP"];
-    const cd = {};
-    keys.forEach(k => {
-      const saved = localStorage.getItem("cool_" + k + "_" + address);
-      cd[k] = saved ? new Date(saved) : null;
-    });
-    setCooldowns(cd);
-  }, [address]);
+    if (walletClient && isConnected) {
+      const provider = new ethers.BrowserProvider(walletClient);
+      provider.getSigner().then((signer) => {
+        const c = new ethers.Contract(CONTRACT, ABI, signer);
+        setContract(c);
 
+        c.fee().then((f) => setFee(f));
+      });
+    }
+  }, [walletClient, isConnected]);
 
-  async function run(type, message) {
-    if (!isConnected) return alert("Connect wallet first");
+  if (!isConnected) return null;
 
-    const todayUTC = new Date().toISOString().slice(0, 10);
-    const saved = localStorage.getItem("cool_" + type + "_" + address);
-    if (saved === todayUTC)
-      return alert("You already did " + type + " today");
+  async function sendRitual(type, message) {
+    if (!contract || !fee) {
+      alert("Contract not ready");
+      return;
+    }
 
     try {
-      const fee = await readContract({
-        address: CONTRACT,
-        abi: ABI,
-        functionName: "fee",
-        config,
-      });
+      const tx = await contract.performRitual(message, { value: fee });
+      alert("TX sent… waiting");
+      await tx.wait();
 
-      const tx = await writeContract({
-        address: CONTRACT,
-        abi: ABI,
-        functionName: "performRitual",
-        args: [message],
-        value: fee,
-        config,
-      });
-
-      alert("TX sent, wait...");
-
-      // save cooldown
-      localStorage.setItem("cool_" + type + "_" + address, todayUTC);
-      setCooldowns(prev => ({
-        ...prev,
-        [type]: new Date(),
-      }));
-
-      alert(type + " ritual complete!");
+      alert(`${type} ritual done!`);
     } catch (err) {
       console.error(err);
-      alert("Ritual failed");
+      alert("TX failed!");
     }
   }
 
   return (
-    <div className="row">
+    <div style={{ marginTop: 20 }}>
       <button
-        className="btn gm"
-        disabled={!isConnected || cooldowns.GM}
-        onClick={() => run("GM", "GM ⚡")}
+        style={{ margin: 10 }}
+        onClick={() => sendRitual("GM", "GM ⚡")}
       >
         GM Ritual 🌞
       </button>
 
       <button
-        className="btn gn"
-        disabled={!isConnected || cooldowns.GN}
-        onClick={() => run("GN", "GN 🌙")}
+        style={{ margin: 10 }}
+        onClick={() => sendRitual("GN", "GN 🌙")}
       >
         GN Ritual 🌙
       </button>
 
       <button
-        className="btn sleep"
-        disabled={!isConnected || cooldowns.SLEEP}
-        onClick={() => run("SLEEP", "GoSleep 😴")}
+        style={{ margin: 10 }}
+        onClick={() => sendRitual("SLEEP", "GoSleep 😴")}
       >
         GoSleep 😴
       </button>
 
-      {/* Show cooldown timer */}
-      {isConnected && (
-        <CooldownTimer cooldowns={cooldowns} />
-      )}
+      <p style={{ marginTop: 10, opacity: 0.7 }}>
+        Ritual Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
+      </p>
     </div>
   );
 }
