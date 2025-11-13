@@ -1,69 +1,51 @@
-import { useAccount, useWalletClient } from "wagmi";
-import { useState, useEffect } from "react";
-import { ethers } from "ethers";
+async function sendRitual(type, message) {
+  if (!contract) {
+    alert("Wallet not ready yet");
+    return;
+  }
 
-const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
-
-const ABI = [
-  "function performRitual(string calldata newMessage) external payable",
-  "function fee() view returns (uint256)"
-];
-
-export default function RitualButtons() {
-  const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
-
-  const [fee, setFee] = useState(null);
-  const [contract, setContract] = useState(null);
-
-  useEffect(() => {
-    if (!walletClient || !isConnected) return;
-
-    // ⭐ Convert viem walletClient → ethers signer
-    const ethersProvider = new ethers.BrowserProvider(walletClient);
-    ethersProvider.getSigner().then(async (signer) => {
-      const c = new ethers.Contract(CONTRACT, ABI, signer);
-      setContract(c);
-
-      try {
-        const f = await c.fee();
-        setFee(f);
-      } catch (err) {
-        console.error("Fee read failed:", err);
-      }
-    });
-
-  }, [walletClient, isConnected]);
-
-  if (!isConnected) return null;
-
-  async function sendRitual(type, message) {
-    if (!contract) {
-      alert("Contract not ready");
+  try {
+    // Check fee & balance
+    const feeValue = await contract.fee();
+    
+    const balance = await contract.runner.provider.getBalance(contract.runner.address);
+    if (balance < feeValue) {
+      alert("Not enough ETH. Ritual needs " + ethers.formatEther(feeValue) + " ETH");
       return;
     }
 
-    try {
-      const tx = await contract.performRitual(message, { value: fee });
-      alert("TX sent… waiting");
-      await tx.wait();
+    // Try send TX
+    const tx = await contract.performRitual(message, { value: feeValue });
+    alert("Transaction sent… Waiting for confirmation.");
+    await tx.wait();
 
-      alert(`${type} ritual done!`);
-    } catch (err) {
-      console.error("TX ERROR:", err);
-      alert("TX failed!");
+    alert(`${type} ritual completed! ✨`);
+
+  } catch (err) {
+    console.error("TX ERROR:", err);
+
+    // ===== Specific Errors =====
+    if (err.code === "ACTION_REJECTED") {
+      alert("You rejected the transaction.");
+      return;
     }
+
+    if (String(err).includes("insufficient funds")) {
+      alert("Not enough ETH to pay fee + gas.");
+      return;
+    }
+
+    if (String(err).includes("gas required exceeds allowance")) {
+      alert("Gas error: contract likely reverted.");
+      return;
+    }
+
+    if (String(err).includes("USER_REJECTED")) {
+      alert("You cancelled the transaction.");
+      return;
+    }
+
+    // Default fallback
+    alert("TX failed! Check wallet network & balance.");
   }
-
-  return (
-    <div style={{ marginTop: 20 }}>
-      <button onClick={() => sendRitual("GM", "GM ⚡")}>GM Ritual 🌞</button>
-      <button onClick={() => sendRitual("GN", "GN 🌙")}>GN Ritual 🌙</button>
-      <button onClick={() => sendRitual("SLEEP", "GoSleep 😴")}>GoSleep 😴</button>
-
-      <p style={{ marginTop: 10 }}>
-        Ritual Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
-      </p>
-    </div>
-  );
 }
