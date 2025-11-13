@@ -127,7 +127,7 @@ export default function App() {
       >
         {/* Banner */}
         <img
-          src="/public/gmbandit.jpg"
+          src="/gmbandit.jpg"
           alt="Banner"
           style={{ maxWidth: "100%", borderRadius: 12, marginBottom: 12 }}
         />
