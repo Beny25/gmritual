@@ -1,16 +1,20 @@
+// src/components/ConnectWallet.jsx
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 export default function ConnectWallet() {
   const { address, isConnected } = useAccount();
-  const { connectors, connect, error, isPending } = useConnect();
+  const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
+
+  if (!connectors.length) {
+    return <p style={{ textAlign: "center" }}>No wallet connectors found</p>;
+  }
 
   if (isConnected)
     return (
       <div style={{ textAlign: "center", marginBottom: 20 }}>
-        <p>
-          Connected: {address.slice(0, 6)}...{address.slice(-4)}
-        </p>
+        <p>Connected: {address.slice(0, 6)}...{address.slice(-4)}</p>
+
         <button
           onClick={() => disconnect()}
           style={{
@@ -28,30 +32,23 @@ export default function ConnectWallet() {
 
   return (
     <div style={{ textAlign: "center", marginBottom: 20 }}>
-      {connectors.map((connector) => (
+      {connectors.map((c) => (
         <button
-          key={connector.uid}
-          disabled={isPending}
-          onClick={() => connect({ connector })}
+          key={c.uid}
+          onClick={() => connect({ connector: c })}
           style={{
             padding: "12px 20px",
             borderRadius: 10,
             background: "#2563eb",
             color: "white",
             fontWeight: 600,
-            marginBottom: 10,
             minWidth: 240,
+            marginBottom: 10,
           }}
         >
-          Connect Wallet ({connector.name})
+          Connect Wallet ({c.name})
         </button>
       ))}
-
-      {error && (
-        <p style={{ color: "red", marginTop: 10 }}>
-          {error.message}
-        </p>
-      )}
     </div>
   );
-}
+      }
