@@ -1,40 +1,202 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WagmiConfig } from "wagmi";
 import { config } from "./wagmi";
 import { ethers } from "ethers";
 
+const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+
+const ABI = [
+  "function performRitual(string calldata newMessage) external payable",
+  "function fee() view returns (uint256)"
+];
+
+const BASE_CHAIN = "0x2105";
+
 export default function App() {
-  const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
-  const ABI = [
-    "function performRitual(string calldata newMessage) external payable",
-    "function fee() view returns (uint256)"
-  ];
-
-  const BASE_CHAIN = "0x2105";
-
-  // ===== React state =====
-  const [account, setAccount] = useState(null);
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
+  const [account, setAccount] = useState(null);
 
-  const short = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "");
+  // ===== UI states =====
+  const [gmDisabled, setGmDisabled] = useState(true);
+  const [gnDisabled, setGnDisabled] = useState(true);
+  const [sleepDisabled, setSleepDisabled] = useState(true);
 
-  function checkCooldown(type) {
+  // ===== helpers =====
+  const short = (a) => a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "";
+
+  const today = () => new Date().toISOString().slice(0, 10);
+  const key = (type) => `cool_${type}_${account}`;
+
+  const checkCooldown = (type) => {
     if (!account) return true;
-    const saved = localStorage.getItem("cool_" + type + "_" + account);
-    if (!saved) return false;
-    const today = new Date().toISOString().slice(0, 10);
-    return saved === today;
-  }
+    return localStorage.getItem(key(type)) === today();
+  };
 
-  function mark(type) {
-    const today = new Date().toISOString().slice(0, 10);
-    localStorage.setItem("cool_" + type + "_" + account, today);
-  }
+  const mark = (type) => localStorage.setItem(key(type), today());
 
+  const refreshButtons = () => {
+    setGmDisabled(checkCooldown("GM"));
+    setGnDisabled(checkCooldown("GN"));
+    setSleepDisabled(checkCooldown("SLEEP"));
+  };
+
+  // ====== Chain Switch ======
   async function ensureBase() {
-    const eth = window.ethereum;
-    if (!eth) {
+    const eth = window.ethereum || window.okxwallet || window.bitgetwallet || (window.bitkeep && window.bitkeep.ethereum);
+    if (!eth) throw new Error("No wallet");
+
+    const chainId = await eth.request({ method: "eth_chainId" });
+    if (chainId === BASE_CHAIN) return;
+
+    try {
+      await eth.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: BASE_CHAIN }]
+      });
+    } catch (e) {
+      if (e.code === 4902) {
+        await eth.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: BASE_CHAIN,
+            chainName: "Base",
+            rpcUrls: ["https://mainnet.base.org"],
+            nativeCurrency: { name: "Base Ether", symbol: "ETH", decimals: 18 },
+            blockExplorerUrls: ["https://basescan.org"]
+          }]
+        });
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  // ====== Connect ======
+  async function connect() {
+    try {
+      const eth = window.ethereum || window.okxwallet || window.bitgetwallet || (window.bitkeep && window.bitkeep.ethereum);
+
+      if (!eth) {
+        alert("Wallet not detected. Use MetaMask/Bitget/OKX.");
+        return;
+      }
+
+      await ensureBase();
+
+      const prov = new ethers.providers.Web3Provider(eth, "any");
+      setProvider(prov);
+
+      await prov.send("eth_requestAccounts", []);
+      const signer = prov.getSigner();
+      setSigner(signer);
+
+      const addr = await signer.getAddress();
+      setAccount(addr);
+
+      refreshButtons();
+
+      // wallet listeners
+      eth.on?.("accountsChanged", (acc) => {
+        if (!acc || acc.length === 0) {
+          disconnect();
+          return;
+        }
+        setAccount(acc[0]);
+        refreshButtons();
+      });
+
+      eth.on?.("chainChanged", (c) => {
+        if (c !== BASE_CHAIN) disconnect();
+      });
+
+    } catch (err) {
+      console.error(err);
+      alert("Connection failed");
+    }
+  }
+
+  // ====== Disconnect ======
+  function disconnect() {
+    setProvider(null);
+    setSigner(null);
+    setAccount(null);
+    setGmDisabled(true);
+    setGnDisabled(true);
+    setSleepDisabled(true);
+  }
+
+  // ====== Ritual ======
+  async function ritual(type, message) {
+    if (checkCooldown(type)) {
+      alert(`You already did ${type} today.`);
+      return;
+    }
+
+    const eth = window.ethereum || window.okxwallet || window.bitgetwallet || (window.bitkeep && window.bitkeep.ethereum);
+    if (eth?.isBaseWallet || eth?.isSmartAccount) {
+      alert("Base App not supported. Use Bitget/MetaMask/OKX.");
+      return;
+    }
+
+    try {
+      await ensureBase();
+
+      const c = new ethers.Contract(CONTRACT, ABI, signer);
+      const fee = await c.fee();
+
+      const tx = await c.performRitual(message, { value: fee });
+      alert("TX sent… waiting");
+      await tx.wait();
+
+      mark(type);
+      refreshButtons();
+      alert(`${type} ritual complete`);
+    } catch (e) {
+      console.error(e);
+      alert("Ritual failed");
+    }
+  }
+
+  return (
+    <WagmiConfig config={config}>
+      <div className="wrap">
+
+        <h1 style={{ textAlign: "center", marginTop: 100 }}>GM Ritual Dashboard</h1>
+
+        {!account && (
+          <button className="btn primary" onClick={connect}>
+            Connect Wallet
+          </button>
+        )}
+
+        {account && (
+          <>
+            <p style={{ marginTop: 10 }}>Connected: {short(account)}</p>
+
+            <button className="btn danger" onClick={disconnect}>
+              Disconnect
+            </button>
+
+            <div className="row" style={{ marginTop: 24 }}>
+              <button className="btn gm" disabled={gmDisabled} onClick={() => ritual("GM", "GM ⚡")}>
+                GM Ritual 🌞
+              </button>
+
+              <button className="btn gn" disabled={gnDisabled} onClick={() => ritual("GN", "GN 🌙")}>
+                GN Ritual 🌙
+              </button>
+
+              <button className="btn sleep" disabled={sleepDisabled} onClick={() => ritual("SLEEP", "GoSleep 😴")}>
+                GoSleep 😴
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </WagmiConfig>
+  );
+  }    if (!eth) {
       alert("Wallet not detected. Use MetaMask/Bitget/OKX.");
       throw new Error("No wallet");
     }
