@@ -1,0 +1,203 @@
+/* dashboard.css
+   GM Ritual React — UI styles converted from original HTML
+   Put this file at src/styles/dashboard.css and import from Dashboard.jsx
+*/
+
+:root{
+  --bg: #0f1115;
+  --card: #161a22;
+  --text: #e9eefb;
+  --muted: #9aa4b2;
+  --blue: #2563eb;
+  --purple: #7c3aed;
+  --slate: #334155;
+  --green: #16a34a;
+  --red: #ef4444;
+}
+
+/* Reset / base */
+*{box-sizing:border-box}
+html,body,#root{height:100%}
+body{
+  margin:0;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  color:var(--text);
+  background: linear-gradient(180deg, #1E3A8A 0%, #60A5FA 50%, #ffffff 100%);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* Layout wrap */
+.wrap{
+  max-width: 880px;
+  margin: 48px auto;
+  padding: 0 16px;
+  text-align:center;
+}
+
+/* Banner */
+.banner{
+  max-width:100%;
+  border-radius:12px;
+  margin-bottom:12px;
+  display:block;
+  margin-left:auto;
+  margin-right:auto;
+}
+
+/* small humor text under banner */
+.humor{
+  color:#1e3a8a;
+  font-size:14px;
+  margin-bottom:28px;
+  line-height:1.35;
+}
+
+/* Titles */
+h1{
+  font-size:38px;
+  margin:0 0 6px;
+  color:var(--slate);
+}
+.sub{
+  color:#1f2937;
+  margin-bottom:32px;
+  font-size:15px;
+}
+
+/* Card */
+.card{
+  background: rgba(22, 26, 34, 0.85);
+  border: 1px solid #1f2430;
+  border-radius: 16px;
+  padding: 24px;
+  color: var(--text);
+  box-shadow: 0 6px 18px rgba(6, 8, 12, 0.25);
+}
+
+/* rows & utility */
+.row{
+  display:flex;
+  gap:14px;
+  flex-wrap:wrap;
+  justify-content:center;
+  align-items:center;
+}
+.center-btn{
+  margin-bottom: 18px;
+  text-align:center;
+}
+
+/* Buttons */
+button{
+  cursor:pointer;
+  border:0;
+  border-radius:12px;
+  padding:14px 18px;
+  font-weight:600;
+  transition: transform .12s ease, opacity .12s ease, box-shadow .12s ease;
+  box-shadow: 0 6px 12px rgba(2,6,23,0.12);
+  font-size:15px;
+}
+button:active{ transform: translateY(1px) }
+
+.btn{ min-width:220px; display:inline-block; }
+
+/* Color variants */
+.primary{ background:var(--blue); color:#fff; }
+.danger{ background:var(--red); color:#fff; }
+.gm{ background:#1d4ed8; color:#fff; }
+.gn{ background:#6d28d9; color:#fff; }
+.sleep{ background:#374151; color:#cbd5e1; }
+
+/* Disabled state */
+.disabled,
+button[disabled]{
+  opacity:.55;
+  pointer-events:none;
+  box-shadow:none;
+}
+
+/* Chip / address */
+.addrBar{ margin:12px 0 18px; display:block; }
+.chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  background:#0b1324;
+  border:1px solid #1f2a44;
+  color:#cfe0ff;
+  padding:10px 12px;
+  border-radius:12px;
+  font-size:14px;
+}
+.chip .dot{
+  width:8px;height:8px;border-radius:999px;background:#16a34a;display:inline-block;
+}
+
+/* Cooldown text */
+.cd1{ margin:0; font-size:14px; opacity:.85; }
+.cd2{ margin:0; font-size:12px; opacity:.65; }
+
+/* Foot / links */
+.foot{ color:var(--muted); font-size:13px; margin-top:22px; }
+.link{ color:#7aa2ff; text-decoration:none; cursor:pointer; }
+
+/* small connect message */
+.connect-msg{
+  opacity:.6;
+  margin-top:14px;
+  font-style:italic;
+}
+
+/* Responsive tweaks */
+@media (max-width:520px){
+  .btn{ min-width:160px; padding:12px 14px; font-size:14px; }
+  h1{ font-size:28px }
+  .wrap{ margin:28px 12px }
+}
+
+/* Misc */
+.center{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* subtle hover */
+.btn:not(.disabled):hover{ transform: translateY(-3px); box-shadow: 0 10px 20px rgba(2,6,23,0.12); }
+
+/* small helpers for alignment inside card */
+.card .row { margin-bottom:12px; }
+
+/* ensure images from /public load nicely */
+img{ max-width:100%; height:auto; }
+
+/* optional: subtle gradient overlay inside card for contrast */
+.card::after{
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+/* ensure countdown paragraphs not too tall */
+.card p{ line-height:1.3; }
+
+/* make links look like original style */
+a.link{ color:#7aa2ff; text-decoration:none; font-weight:600; }
+
+/* optional small badge for "Connected" */
+.connected-badge{
+  display:inline-flex;
+  gap:8px;
+  align-items:center;
+  padding:8px 10px;
+  border-radius:10px;
+  background: linear-gradient(90deg, rgba(34,197,94,0.12), rgba(14,165,233,0.06));
+  color:#dff7e6;
+  border:1px solid rgba(16,185,129,0.12);
+  font-weight:700;
+}
+
+/* make sure the countdown and button spacing matches original feel */
+.center-btn .btn{ margin-bottom:8px; }
