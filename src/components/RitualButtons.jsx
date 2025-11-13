@@ -13,32 +13,42 @@ export default function RitualButtons() {
     functionName: "fee",
   });
 
-  const { writeContract } = useWriteContract();
+  const { writeContractAsync } = useWriteContract();
 
   if (!isConnected) return null;
 
-  autoReset(address); // reset otomatis UTC
+  // auto reset setiap render
+  autoReset(address);
 
-  const sendRitual = (type, msg) => {
+  async function sendRitual(type, msg) {
     if (isCooldown(type, address)) {
-      alert(`You already used ${type} today.`);
+      alert(`You already used ${type} today`);
       return;
     }
 
-    writeContract({
-      address: CONTRACT,
-      abi: ABI,
-      functionName: "performRitual",
-      args: [msg],
-      value: fee,
-      gas: BigInt(250000),
-    });
+    try {
+      // 🔥 TX benar—modal akan muncul
+      const txHash = await writeContractAsync({
+        address: CONTRACT,
+        abi: ABI,
+        functionName: "performRitual",
+        args: [msg],
+        value: BigInt(fee.toString()),
+        gas: BigInt(250000),
+      });
 
-    mark(type, address);
-  };
+      // 🔥 Baru set cooldown setelah TX terkirim sukses
+      mark(type, address);
+    } catch (err) {
+      console.error(err);
+      alert("Transaction failed or rejected.");
+    }
+  }
 
   return (
     <>
+
+      {/* 🔵 RITUAL BUTTONS */}
       <div className="row" style={{ marginTop: 4 }}>
         <button
           className={`btn gm ${isCooldown("GM", address) ? "disabled" : ""}`}
@@ -62,11 +72,16 @@ export default function RitualButtons() {
         </button>
       </div>
 
-      <div style={{ opacity: 0.7, marginTop: 12 }}>
+      {/* 🔵 FEE TEXT */}
+      <div style={{ opacity: 0.7, marginTop: 10 }}>
         Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
       </div>
 
-      <CooldownTimer />
+      {/* 🔥🔥 COOLDOWN TIMER ADA DI BAWAH TOMBOL 🔥🔥 */}
+      <div style={{ marginTop: 6 }}>
+        <CooldownTimer />
+      </div>
+
     </>
   );
 }
