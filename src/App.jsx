@@ -1,11 +1,13 @@
 import { WagmiConfig } from "wagmi";
 import { config } from "./wagmi";
-import Dashboard from "./components/Dashboard";
 
 export default function App() {
   return (
     <WagmiConfig config={config}>
-      <Dashboard />
+      <div style={{ padding: 40, textAlign: "center", color: "white" }}>
+        <h1>GM Ritual (React Version)</h1>
+        <p>UI under development...</p>
+      </div>
     </WagmiConfig>
   );
 }
