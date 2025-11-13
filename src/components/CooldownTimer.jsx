@@ -1,49 +1,19 @@
 import { useEffect, useState } from "react";
+import { getCountdown } from "../logic/ritual";
 
-export default function CooldownTimer({ type, address }) {
-  const todayUTC = new Date().toISOString().slice(0, 10);
-  const key = `cool_${type}_${address}`;
-  const doneToday = localStorage.getItem(key) === todayUTC;
-
-  const [remaining, setRemaining] = useState("");
+export default function CooldownTimer() {
+  const [time, setTime] = useState(getCountdown());
 
   useEffect(() => {
-    if (!doneToday) return;
-
-    function update() {
-      const now = new Date();
-      const reset = new Date(Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate() + 1,
-        0, 0, 0
-      ));
-
-      const diff = reset - now;
-
-      if (diff <= 0) {
-        setRemaining("");
-        return;
-      }
-
-      const h = Math.floor(diff / 1000 / 3600);
-      const m = Math.floor((diff / 1000 % 3600) / 60);
-      const s = Math.floor(diff / 1000 % 60);
-
-      setRemaining(`${h}h ${m}m ${s}s`);
-    }
-
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [doneToday]);
-
-  if (!doneToday) return null;
+    const i = setInterval(() => {
+      setTime(getCountdown());
+    }, 1000);
+    return () => clearInterval(i);
+  }, []);
 
   return (
-    <div style={{ textAlign: "center", marginTop: "6px" }}>
-      <p className="cd1">Next {type} in <strong>{remaining}</strong></p>
-      <p className="cd2">Reset at 00:00 UTC</p>
+    <div style={{ marginTop: 10, opacity: 0.85, fontSize: 14 }}>
+      Next ritual in {time.h}h {time.m}m {time.s}s
     </div>
   );
 }
