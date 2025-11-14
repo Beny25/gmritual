@@ -1,4 +1,5 @@
 import { useConnect, useAccount, useDisconnect } from "wagmi";
+import { useEffect, useState } from "react";
 
 export default function ConnectWallet() {
   const { address, isConnected } = useAccount();
@@ -8,10 +9,28 @@ export default function ConnectWallet() {
   const injected = connectors.find(c => c.id === "injected");
   const walletConnect = connectors.find(c => c.id === "walletConnect");
 
+  const [hasInjectedWallet, setHasInjectedWallet] = useState(false);
+
+  useEffect(() => {
+    // Detect ANY mobile wallet injected provider
+    if (
+      typeof window !== "undefined" &&
+      (window.ethereum ||
+       window.okxwallet ||
+       window.bitkeep ||
+       window.bitgetWallet ||
+       window.trustwallet)
+    ) {
+      setHasInjectedWallet(true);
+    }
+  }, []);
+
   function handleConnect() {
-    if (injected?.ready) {
+    if (hasInjectedWallet && injected) {
+      // Force injected for mobile DApp browsers
       connect({ connector: injected });
     } else {
+      // Fallback for normal browsers
       connect({ connector: walletConnect });
     }
   }
