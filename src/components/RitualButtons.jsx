@@ -25,32 +25,47 @@ export default function RitualButtons() {
   if (!isConnected || !address) return null;
 
   async function sendRitual(type, msg) {
-    //Cooldown Check
-    if (isCooldown(type, address)) {
-      alert(`You already did ${type} today.`);
-      return;
-    }
+  if (isCooldown(type, address)) {
+    alert(`You already did ${type} today.`);
+    return;
+  }
 
+  try {
+    // 1️⃣ Try estimate gas
+    let gasLimit;
     try {
-      const txHash = await writeContractAsync({
+      const estimate = await writeContractAsync({
         address: CONTRACT,
         abi: ABI,
         functionName: "performRitual",
         args: [msg],
         value: BigInt(fee.toString()),
-        gas: BigInt(250000),
+        account: address,
+        gas: undefined,
       });
-
-      // 🔥 Save cooldown only after TX
-      mark(type, address);
-
-      // 🔥 Set jenis ritual untuk countdown
-      setLastType(type);
-
-    } catch (err) {
-      console.error(err);
-      alert("Transaction rejected or failed.");
+      gasLimit = estimate;
+    } catch (_) {
+      // 2️⃣ Fallback for wallets that cannot estimate
+      gasLimit = BigInt(250000);
     }
+
+    // 3️⃣ Send TX with working gas limit
+    const txHash = await writeContractAsync({
+      address: CONTRACT,
+      abi: ABI,
+      functionName: "performRitual",
+      args: [msg],
+      value: BigInt(fee.toString()),
+      gas: gasLimit,
+    });
+
+    mark(type, address);
+    setLastType(type);
+
+  } catch (err) {
+    console.error(err);
+    alert("Transaction failed / rejected.");
+  }
   }
 
   return (
