@@ -17,7 +17,7 @@ export default function RitualButtons() {
 
   const { writeContractAsync } = useWriteContract();
 
-  // 🔥 Auto reset setiap change wallet
+  // 🔵 Reset cooldown daily jika address berubah
   useEffect(() => {
     if (address) autoReset(address);
   }, [address]);
@@ -25,53 +25,57 @@ export default function RitualButtons() {
   if (!isConnected || !address) return null;
 
   async function sendRitual(type, msg) {
-  if (isCooldown(type, address)) {
-    alert(`You already did ${type} today.`);
-    return;
-  }
+    if (isCooldown(type, address)) {
+      alert(`You already did ${type} today.`);
+      return;
+    }
 
-  try {
-    // 1️⃣ Try estimate gas
-    let gasLimit;
     try {
-      const estimate = await writeContractAsync({
+      let gasLimit;
+
+      // 🔵 Try estimate gas
+      try {
+        const estimateTx = await writeContractAsync({
+          address: CONTRACT,
+          abi: ABI,
+          functionName: "performRitual",
+          args: [msg],
+          value: BigInt(fee.toString()),
+          account: address,
+          gas: undefined,
+        });
+
+        gasLimit = estimateTx;
+      } catch (_) {
+        // 🔥 Fallback (wallet yang tidak support gas estimation)
+        gasLimit = BigInt(250000);
+      }
+
+      // 🔵 Actual transaction
+      const txHash = await writeContractAsync({
         address: CONTRACT,
         abi: ABI,
         functionName: "performRitual",
         args: [msg],
         value: BigInt(fee.toString()),
-        account: address,
-        gas: undefined,
+        gas: gasLimit,
       });
-      gasLimit = estimate;
-    } catch (_) {
-      // 2️⃣ Fallback for wallets that cannot estimate
-      gasLimit = BigInt(250000);
+
+      // Save cooldown
+      mark(type, address);
+
+      // Set type for countdown component
+      setLastType(type);
+
+    } catch (err) {
+      console.error(err);
+      alert("Transaction failed / rejected.");
     }
-
-    // 3️⃣ Send TX with working gas limit
-    const txHash = await writeContractAsync({
-      address: CONTRACT,
-      abi: ABI,
-      functionName: "performRitual",
-      args: [msg],
-      value: BigInt(fee.toString()),
-      gas: gasLimit,
-    });
-
-    mark(type, address);
-    setLastType(type);
-
-  } catch (err) {
-    console.error(err);
-    alert("Transaction failed / rejected.");
-  }
   }
 
   return (
     <div className="ritual-wrapper" style={{ marginTop: 10 }}>
 
-      {/* BUTTONS */}
       <div className="row" style={{ marginBottom: 12 }}>
 
         <button
@@ -97,12 +101,12 @@ export default function RitualButtons() {
       </div>
 
       {/* FEE */}
-      <div style={{ opacity: 0.7, marginBottom: 4 }}>
+      <div style={{ opacity: 0.7, marginBottom: 6 }}>
         Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
       </div>
 
-      {/* 🔥 Countdown ALWAYS below buttons */}
-      <div style={{ marginTop: 8, textAlign: "center" }}>
+      {/* COOLDOWN TIMER */}
+      <div style={{ marginTop: 10, textAlign: "center" }}>
         <CooldownTimer type={lastType} address={address} />
       </div>
 
