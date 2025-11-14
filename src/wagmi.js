@@ -6,8 +6,10 @@ export const config = createConfig({
   chains: [base],
 
   connectors: [
+    // 🔥 Mobile DApp browser (MetaMask, OKX, Bitget, TP, Trust, dsb)
     injected(),
 
+    // 🔥 WalletConnect — termasuk Warpcast
     walletConnect({
       projectId: import.meta.env.VITE_WC_PROJECT_ID,
 
@@ -20,6 +22,7 @@ export const config = createConfig({
 
       showQrModal: true,
 
+      // 🔥 SUPPORT Warpcast detection
       qrModalOptions: {
         themeMode: "dark",
         mobileLinks: [
@@ -32,10 +35,10 @@ export const config = createConfig({
           "safepal",
           "argent",
           "tokenpocket",
-          "farcaster"   // 👉 WAJIB buat Warpcast detect wallet
+          "farcaster" // <-- penting biar Warpcast muncul
         ]
       }
-    }),
+    })
   ],
 
   transports: {
