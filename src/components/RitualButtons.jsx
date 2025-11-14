@@ -1,23 +1,23 @@
 import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
-import { simulateContract } from "wagmi/actions";
+import { simulateContract, getConfig } from "wagmi/actions";
 import { CONTRACT, ABI } from "../logic/contract";
 import { ethers } from "ethers";
 import { isCooldown, mark, autoReset } from "../logic/ritual";
 import CooldownTimer from "./CooldownTimer";
-import { config } from "../wagmi";
 
 export default function RitualButtons() {
   const { address, isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
   const [lastType, setLastType] = useState(null);
+
+  const wagmiConfig = getConfig();
 
   const { data: fee } = useReadContract({
     address: CONTRACT,
     abi: ABI,
     functionName: "fee",
   });
-
-  const { writeContractAsync } = useWriteContract();
 
   useEffect(() => {
     if (address) autoReset(address);
@@ -26,6 +26,11 @@ export default function RitualButtons() {
   if (!isConnected || !address) return null;
 
   async function sendRitual(type, msg) {
+    if (!fee) {
+      alert("Contract fee not loaded yet.");
+      return;
+    }
+
     if (isCooldown(type, address)) {
       alert(`You already did ${type} today.`);
       return;
@@ -34,47 +39,46 @@ export default function RitualButtons() {
     try {
       let request;
 
-      // 🔵 TRY SIMULATE GAS (Wagmi V2)
+      // Try gas simulation
       try {
-        const sim = await simulateContract(config, {
+        const sim = await simulateContract(wagmiConfig, {
           address: CONTRACT,
           abi: ABI,
           functionName: "performRitual",
           args: [msg],
-          value: BigInt(fee.toString()),
+          value: fee,              // Wagmi v2 expects bigint
           account: address,
         });
 
         request = sim.request;
-
       } catch (err) {
-        console.warn("Simulation failed → using fallback gas");
+        console.warn("Simulation failed → fallback gas");
 
         request = {
           address: CONTRACT,
           abi: ABI,
           functionName: "performRitual",
           args: [msg],
-          value: BigInt(fee.toString()),
+          value: fee,
           gas: BigInt(250000),
+          account: address,
         };
       }
 
-      // 🔵 SEND TX
       const tx = await writeContractAsync(request);
 
       mark(type, address);
       setLastType(type);
 
     } catch (err) {
-      console.error(err);
+      console.error("TX ERROR:", err);
       alert("Transaction rejected or failed.");
     }
   }
 
   return (
     <div className="ritual-wrapper" style={{ marginTop: 10 }}>
-
+      
       <div className="row" style={{ marginBottom: 12 }}>
         <button
           className={`btn gm ${isCooldown("GM", address) ? "disabled" : ""}`}
@@ -108,4 +112,4 @@ export default function RitualButtons() {
 
     </div>
   );
-}
+          }
