@@ -1,43 +1,42 @@
 import { useEffect, useState } from "react";
-import { isCooldown, nextResetUTC } from "../logic/ritual";
 
-export default function CooldownTimer({ type, address }) {
-  const [timeLeft, setTimeLeft] = useState(null);
-
-  // Belum ada ritual → timer tidak tampil
-  if (!type || !address) return null;
-
-  // Jika belum cooldown → timer tidak tampil
-  if (!isCooldown(type, address)) return null;
-
-  function calculate() {
-    const next = nextResetUTC();
-    const now = new Date();
-
-    const diff = next - now;
-
-    if (diff <= 0) {
-      setTimeLeft("0h 0m 0s");
-      return;
-    }
-
-    const h = Math.floor(diff / (1000 * 60 * 60));
-    const m = Math.floor((diff / (1000 * 60)) % 60);
-    const s = Math.floor((diff / 1000) % 60);
-
-    setTimeLeft(`${h}h ${m}m ${s}s`);
-  }
+export default function CooldownTimer() {
+  const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
-    calculate();
-    const timer = setInterval(calculate, 1000);
-    return () => clearInterval(timer);
-  }, [type, address]);
+    function update() {
+      const now = new Date();
 
-  if (!timeLeft) return null;
+      // Reset ke 00:00 UTC besok
+      const reset = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() + 1,
+          0, 0, 0
+        )
+      );
+
+      const diff = (reset - now) / 1000;
+      if (diff <= 0) {
+        setTimeLeft("Ready!");
+        return;
+      }
+
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = Math.floor(diff % 60);
+
+      setTimeLeft(`${h}h ${m}m ${s}s`);
+    }
+
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <div style={{ fontSize: 14, opacity: 0.8 }}>
+    <div style={{ opacity: 0.8, marginTop: 10 }}>
       Next ritual in {timeLeft}
     </div>
   );
