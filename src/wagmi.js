@@ -19,6 +19,6 @@ export const config = createConfig({
   ],
 
   transports: {
-    [base.id]: http("https://base-mainnet.public.blastapi.io"), // FIXED
+    [base.id]: http("https://mainnet.base.org"), // FIXED
   },
 });
