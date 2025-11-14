@@ -1,99 +1,87 @@
 import { useState, useEffect } from "react";
-import {
-  useAccount,
-  useReadContract,
-  useWriteContract,
-  useConfig
-} from "wagmi";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { simulateContract } from "wagmi/actions";
 import { CONTRACT, ABI } from "../logic/contract";
 import { ethers } from "ethers";
 import { isCooldown, mark, autoReset } from "../logic/ritual";
 import CooldownTimer from "./CooldownTimer";
+import { config } from "../wagmi";
 
 export default function RitualButtons() {
   const { address, isConnected } = useAccount();
-  const wagmiConfig = useConfig();
-  const { writeContractAsync } = useWriteContract();
   const [lastType, setLastType] = useState(null);
 
-  // READ FEE WITH WATCH
-  const { data: fee, refetch: refetchFee } = useReadContract({
+  const { data: fee } = useReadContract({
     address: CONTRACT,
     abi: ABI,
     functionName: "fee",
-    watch: true, // auto refresh
   });
 
-  // AUTO RESET + LOAD FEE AFTER CONNECT
+  const { writeContractAsync } = useWriteContract();
+
   useEffect(() => {
-    if (address) {
-      autoReset(address);
-      setTimeout(() => refetchFee(), 200); // refresh fee after connect
-    }
+    if (address) autoReset(address);
   }, [address]);
 
   if (!isConnected || !address) return null;
 
-  async function sendRitual(type, message) {
-    if (!fee || Number(fee) === 0) {
-      alert("Contract fee not loaded yet. Please wait 1–2 seconds.");
-      return;
-    }
-
+  async function sendRitual(type, msg) {
     if (isCooldown(type, address)) {
       alert(`You already did ${type} today.`);
       return;
     }
 
+    if (!fee) {
+      // Jangan block tombol, cuma kasih tahu
+      console.warn("Fee not loaded yet");
+    }
+
     try {
       let request;
 
-      // Try simulateContract first
       try {
-        const sim = await simulateContract(wagmiConfig, {
+        const sim = await simulateContract(config, {
           address: CONTRACT,
           abi: ABI,
           functionName: "performRitual",
-          args: [message],
-          value: fee,
+          args: [msg],
+          value: fee ? BigInt(fee.toString()) : 0n,
           account: address,
         });
 
         request = sim.request;
-      } catch (simErr) {
-        console.warn("Simulation failed, fallback gas used.", simErr);
+
+      } catch (err) {
+        console.warn("Simulation failed, using fallback gas");
 
         request = {
           address: CONTRACT,
           abi: ABI,
           functionName: "performRitual",
-          args: [message],
-          value: fee,
+          args: [msg],
+          value: fee ? BigInt(fee.toString()) : 0n,
           gas: BigInt(250000),
-          account: address,
         };
       }
 
-      // Send TX
       const tx = await writeContractAsync(request);
 
-      // Only cooldown after real success
       mark(type, address);
       setLastType(type);
 
     } catch (err) {
-      console.error("TX ERROR:", err);
+      console.error(err);
       alert("Transaction rejected or failed.");
     }
   }
 
   return (
     <div className="ritual-wrapper" style={{ marginTop: 10 }}>
-      
+
       <div className="row" style={{ marginBottom: 12 }}>
         <button
           className={`btn gm ${isCooldown("GM", address) ? "disabled" : ""}`}
+          disabled={!fee}
           onClick={() => sendRitual("GM", "GM ⚡")}
         >
           GM Ritual 🌞
@@ -101,6 +89,7 @@ export default function RitualButtons() {
 
         <button
           className={`btn gn ${isCooldown("GN", address) ? "disabled" : ""}`}
+          disabled={!fee}
           onClick={() => sendRitual("GN", "GN 🌙")}
         >
           GN Ritual 🌙
@@ -108,6 +97,7 @@ export default function RitualButtons() {
 
         <button
           className={`btn sleep ${isCooldown("SLEEP", address) ? "disabled" : ""}`}
+          disabled={!fee}
           onClick={() => sendRitual("SLEEP", "GoSleep 😴")}
         >
           GoSleep 😴
@@ -121,6 +111,7 @@ export default function RitualButtons() {
       <div style={{ marginTop: 10, textAlign: "center" }}>
         <CooldownTimer type={lastType} address={address} />
       </div>
+
     </div>
   );
-}
+  }
