@@ -1,26 +1,64 @@
-import { useAccount, useConnect } from "wagmi";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 export default function ConnectWallet() {
-  const { isConnected } = useAccount();
-  const { connectors, connect } = useConnect();
+  const { address, isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
 
-  if (isConnected) return null;
+  // DETECT WALLET DOM
+  function getPreferredConnector() {
+    // Bitget / Bitkeep
+    if (window.bitkeep || window.bitget) {
+      const c = connectors.find(x => x.id.includes("bitget"));
+      if (c) return c;
+    }
 
-  function handleConnect() {
-    // Urutan prioritas:
-    // 1. Injected wallet (MetaMask / Bitget / OKX / Trust)
-    // 2. WalletConnect
-    const injected = connectors.find(c => c.id === "injected");
-    const wc = connectors.find(c => c.id === "walletConnect");
+    // OKX Wallet
+    if (window.okxwallet) {
+      const c = connectors.find(x => x.id.includes("okx"));
+      if (c) return c;
+    }
 
-    if (injected) connect({ connector: injected });
-    else if (wc) connect({ connector: wc });
-    else alert("No wallet found");
+    // MetaMask
+    if (window.ethereum?.isMetaMask) {
+      const c = connectors.find(x => x.id === "injected");
+      if (c) return c;
+    }
+
+    // Trust Wallet
+    if (window.ethereum?.isTrust) {
+      const c = connectors.find(x => x.id.includes("trust"));
+      if (c) return c;
+    }
+
+    // fallback → injected pertama
+    return connectors.find(x => x.id === "injected") || connectors[0];
+  }
+
+  const preferred = getPreferredConnector();
+
+  if (isConnected) {
+    return (
+      <div style={{ textAlign: "center" }}>
+        <div style={{ marginBottom: 10 }}>
+          Connected: {address.slice(0,6)}…{address.slice(-4)}
+        </div>
+
+        <button className="connect-btn danger" onClick={() => disconnect()}>
+          Disconnect
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div className="connect-btn" onClick={handleConnect}>
-      Connect Wallet
+    <div style={{ textAlign: "center" }}>
+      <button
+        className="connect-btn"
+        onClick={() => connect({ connector: preferred })}
+      >
+        Connect Wallet
+      </button>
     </div>
   );
-}
+    }
