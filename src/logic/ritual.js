@@ -1,52 +1,32 @@
-// Key builder (per tombol per address)
-export function cdKey(type, address) {
-  return `cool_${type}_${address}`;
+// Ambil tanggal UTC (bukan lokal)
+function getTodayUTC() {
+  const now = new Date();
+  return now.toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
 }
 
-// Simpan UTC date hari ini
 export function mark(type, address) {
-  const todayUTC = new Date().toISOString().slice(0, 10);
-  localStorage.setItem(cdKey(type, address), todayUTC);
+  const key = `ritual_${address}_${type}`;
+  const today = getTodayUTC();
+  localStorage.setItem(key, today);
 }
 
-// Cek apakah tombol ini sudah pernah dipakai hari ini
 export function isCooldown(type, address) {
-  if (!address) return true;
-  const saved = localStorage.getItem(cdKey(type, address));
-  const todayUTC = new Date().toISOString().slice(0, 10);
-  return saved === todayUTC;
+  const key = `ritual_${address}_${type}`;
+  const stored = localStorage.getItem(key);
+  const today = getTodayUTC();
+  return stored === today; // cooldown aktif
 }
 
-// Hapus cooldown yang sudah masuk hari baru
+// Reset otomatis setiap hari UTC
 export function autoReset(address) {
-  const todayUTC = new Date().toISOString().slice(0, 10);
+  const types = ["GM", "GN", "SLEEP"];
+  const today = getTodayUTC();
 
-  ["GM", "GN", "SLEEP"].forEach(type => {
-    const saved = localStorage.getItem(cdKey(type, address));
-    if (saved && saved !== todayUTC) {
-      localStorage.removeItem(cdKey(type, address));
+  types.forEach((t) => {
+    const key = `ritual_${address}_${t}`;
+    const stored = localStorage.getItem(key);
+    if (stored && stored !== today) {
+      localStorage.removeItem(key); // RESET
     }
   });
-}
-
-export function nextResetUTC() {
-  const now = new Date();
-  return new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate() + 1,
-    0, 0, 0
-  ));
-}
-
-export function getCountdown() {
-  const now = new Date();
-  const next = nextResetUTC();
-  const diff = Math.max(next - now, 0);
-
-  const h = Math.floor(diff / 3600000);
-  const m = Math.floor((diff % 3600000) / 60000);
-  const s = Math.floor((diff % 60000) / 1000);
-
-  return { h, m, s };
 }
