@@ -1,114 +1,172 @@
+// src/components/RitualButtons.jsx
 import { useState, useEffect } from "react";
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
-import { simulateContract } from "wagmi/actions";
+import { useAccount, useReadContract, useWalletClient } from "wagmi";
 import { CONTRACT, ABI } from "../logic/contract";
 import { ethers } from "ethers";
 import { isCooldown, mark, autoReset } from "../logic/ritual";
 import CooldownTimer from "./CooldownTimer";
-import { config } from "../wagmi";
+
+/**
+ * Ethers-style flow:
+ * - encode ABI calldata dengan ethers.Interface
+ * - build tx object { to, from, value, data }
+ * - call provider.wallet.request({ method: "eth_sendTransaction", params: [tx] })
+ * -> wallet shows gas estimation + sign UI (wallet handles insufficient funds)
+ *
+ * This avoids wagmi simulate/write issues and behaves like your index.html version.
+ */
 
 export default function RitualButtons() {
   const { address, isConnected } = useAccount();
-  const [lastType, setLastType] = useState(null);
-
-  const { data: fee } = useReadContract({
+  const { data: fee, refetch: refetchFee } = useReadContract({
     address: CONTRACT,
     abi: ABI,
     functionName: "fee",
+    watch: true,
   });
 
-  const { writeContractAsync } = useWriteContract();
+  const { data: walletClient } = useWalletClient();
+  const [lastType, setLastType] = useState(null);
 
   useEffect(() => {
-    if (address) autoReset(address);
+    if (address) {
+      autoReset(address);
+      // small delay so provider/connect finishes
+      setTimeout(() => refetchFee && refetchFee(), 200);
+    }
   }, [address]);
 
   if (!isConnected || !address) return null;
 
-  async function sendRitual(type, msg) {
-  if (!address) return;
+  const iface = new ethers.Interface(ABI);
 
-  // 1️⃣ PASTIKAN ADA DI BASE
-  try {
-    await config.getClient().chain?.id;
-    if (config.getClient().chain?.id !== 8453) {
-      await config.getClient().switchChain({ chainId: 8453 });
+  function toHex(value) {
+    // accept BigInt, BN-like (ethers v5 BigNumber), string, number
+    if (value == null) return "0x0";
+    try {
+      // if it's ethers BigNumber
+      if (typeof value === "object" && value._hex) {
+        return "0x" + BigInt(value.toString()).toString(16);
+      }
+      // if already bigint
+      if (typeof value === "bigint") return "0x" + value.toString(16);
+      // if string decimal
+      if (typeof value === "string" && /^\d+$/.test(value)) {
+        return "0x" + BigInt(value).toString(16);
+      }
+      // fallback: try Number -> BigInt
+      return "0x" + BigInt(value).toString(16);
+    } catch (e) {
+      return "0x0";
     }
-  } catch (e) {
-    console.warn("Switch chain failed", e);
   }
 
-  // 2️⃣ CEK COOLDOWN
-  if (isCooldown(type, address)) {
-    alert(`You already did ${type} today.`);
-    return;
-  }
+  async function sendRawTx(type, message) {
+    if (isCooldown(type, address)) {
+      alert(`You already did ${type} today.`);
+      return;
+    }
 
-  // 3️⃣ VALUE (fee) fallback
-  const value = fee ? BigInt(fee.toString()) : 0n;
+    // encode calldata
+    const data = iface.encodeFunctionData("performRitual", [message]);
 
-  // 4️⃣ TRY SIMULATE
-  let request;
-  try {
-    const sim = await simulateContract(config, {
-      address: CONTRACT,
-      abi: ABI,
-      functionName: "performRitual",
-      args: [msg],
-      account: address,
-      value,
-    });
+    // value: convert fee to hex (wei)
+    const valueHex = fee ? toHex(fee) : "0x0";
 
-    request = sim.request;
-
-  } catch (err) {
-    console.warn("Simulation failed, using fallback gas");
-
-    request = {
-      address: CONTRACT,
-      abi: ABI,
-      functionName: "performRitual",
-      args: [msg],
-      value,
-      gas: 250000n,
+    // build tx
+    const tx = {
+      from: address,
+      to: CONTRACT,
+      value: valueHex,
+      data,
+      // omit gas so wallet estimates itself
     };
+
+    try {
+      // 1) prefer window.ethereum (injected) if exists — behaves like your index.html
+      if (typeof window !== "undefined" && window.ethereum && window.ethereum.request) {
+        const provider = window.ethereum;
+        // ensure chain is Base (try to switch; if fails, wallet may prompt)
+        try {
+          const chainId = await provider.request({ method: "eth_chainId" });
+          if (chainId !== "0x2105") {
+            try {
+              await provider.request({
+                method: "wallet_switchEthereumChain",
+                params: [{ chainId: "0x2105" }],
+              });
+            } catch (_) {
+              // user may need to switch manually; still attempt send (wallet may prompt)
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        const res = await provider.request({ method: "eth_sendTransaction", params: [tx] });
+        // res is txHash (string)
+        mark(type, address);
+        setLastType(type);
+        return res;
+      }
+
+      // 2) fallback to wagmi walletClient (WalletConnect / other connectors)
+      if (walletClient && walletClient.request) {
+        // walletClient.request matches EIP-1193
+        // Many wallet clients provide .request({ method, params })
+        // First try to ensure chain
+        try {
+          const chainId = await walletClient.request({ method: "eth_chainId", params: [] });
+          if (chainId !== "0x2105") {
+            try {
+              await walletClient.request({
+                method: "wallet_switchEthereumChain",
+                params: [{ chainId: "0x2105" }],
+              });
+            } catch (_) {
+              // ignore
+            }
+          }
+        } catch (_) {}
+
+        const res = await walletClient.request({ method: "eth_sendTransaction", params: [tx] });
+        mark(type, address);
+        setLastType(type);
+        return res;
+      }
+
+      // 3) no usable provider
+      alert("No wallet provider found to send transaction.");
+    } catch (err) {
+      console.error("sendRawTx error:", err);
+      // Wallet will show proper rejection message; we just catch to avoid app crash
+      alert("Transaction rejected or failed.");
+    }
   }
 
-  // 5️⃣ KIRIM TX
-  try {
-    await writeContractAsync(request);
-    mark(type, address);
-    setLastType(type);
-
-  } catch (err) {
-    console.error(err);
-    alert("Transaction rejected or failed.");
-  }
-  }
   return (
     <div className="ritual-wrapper" style={{ marginTop: 10 }}>
-
       <div className="row" style={{ marginBottom: 12 }}>
         <button
           className={`btn gm ${isCooldown("GM", address) ? "disabled" : ""}`}
-          disabled={!fee}
-          onClick={() => sendRitual("GM", "GM ⚡")}
+          onClick={() => sendRawTx("GM", "GM ⚡")}
+          disabled={isCooldown("GM", address)}
         >
           GM Ritual 🌞
         </button>
 
         <button
           className={`btn gn ${isCooldown("GN", address) ? "disabled" : ""}`}
-          disabled={!fee}
-          onClick={() => sendRitual("GN", "GN 🌙")}
+          onClick={() => sendRawTx("GN", "GN 🌙")}
+          disabled={isCooldown("GN", address)}
         >
           GN Ritual 🌙
         </button>
 
         <button
           className={`btn sleep ${isCooldown("SLEEP", address) ? "disabled" : ""}`}
-          disabled={!fee}
-          onClick={() => sendRitual("SLEEP", "GoSleep 😴")}
+          onClick={() => sendRawTx("SLEEP", "GoSleep 😴")}
+          disabled={isCooldown("SLEEP", address)}
         >
           GoSleep 😴
         </button>
@@ -121,7 +179,6 @@ export default function RitualButtons() {
       <div style={{ marginTop: 10, textAlign: "center" }}>
         <CooldownTimer type={lastType} address={address} />
       </div>
-
     </div>
   );
-  }
+}
