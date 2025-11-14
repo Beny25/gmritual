@@ -26,55 +26,65 @@ export default function RitualButtons() {
   if (!isConnected || !address) return null;
 
   async function sendRitual(type, msg) {
-    if (isCooldown(type, address)) {
-      alert(`You already did ${type} today.`);
-      return;
+  if (!address) return;
+
+  // 1️⃣ PASTIKAN ADA DI BASE
+  try {
+    await config.getClient().chain?.id;
+    if (config.getClient().chain?.id !== 8453) {
+      await config.getClient().switchChain({ chainId: 8453 });
     }
-
-    if (!fee) {
-      // Jangan block tombol, cuma kasih tahu
-      console.warn("Fee not loaded yet");
-    }
-
-    try {
-      let request;
-
-      try {
-        const sim = await simulateContract(config, {
-          address: CONTRACT,
-          abi: ABI,
-          functionName: "performRitual",
-          args: [msg],
-          value: fee ? BigInt(fee.toString()) : 0n,
-          account: address,
-        });
-
-        request = sim.request;
-
-      } catch (err) {
-        console.warn("Simulation failed, using fallback gas");
-
-        request = {
-          address: CONTRACT,
-          abi: ABI,
-          functionName: "performRitual",
-          args: [msg],
-          value: fee ? BigInt(fee.toString()) : 0n,
-          gas: BigInt(250000),
-        };
-      }
-
-      const tx = await writeContractAsync(request);
-
-      mark(type, address);
-      setLastType(type);
-
-    } catch (err) {
-      console.error(err);
-      alert("Transaction rejected or failed.");
-    }
+  } catch (e) {
+    console.warn("Switch chain failed", e);
   }
 
+  // 2️⃣ CEK COOLDOWN
+  if (isCooldown(type, address)) {
+    alert(`You already did ${type} today.`);
+    return;
+  }
+
+  // 3️⃣ VALUE (fee) fallback
+  const value = fee ? BigInt(fee.toString()) : 0n;
+
+  // 4️⃣ TRY SIMULATE
+  let request;
+  try {
+    const sim = await simulateContract(config, {
+      address: CONTRACT,
+      abi: ABI,
+      functionName: "performRitual",
+      args: [msg],
+      account: address,
+      value,
+    });
+
+    request = sim.request;
+
+  } catch (err) {
+    console.warn("Simulation failed, using fallback gas");
+
+    request = {
+      address: CONTRACT,
+      abi: ABI,
+      functionName: "performRitual",
+      args: [msg],
+      value,
+      gas: 250000n,
+    };
+  }
+
+  // 5️⃣ KIRIM TX
+  try {
+    await writeContractAsync(request);
+    mark(type, address);
+    setLastType(type);
+
+  } catch (err) {
+    console.error(err);
+    alert("Transaction rejected or failed.");
+  }
+  }
   return (
     <div className="ritual-wrapper" style={{ marginTop: 10 }}>
 
