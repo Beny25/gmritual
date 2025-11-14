@@ -17,7 +17,8 @@ export const config = createConfig({
       showQrModal: true,
     }),
   ],
+
   transports: {
-    [base.id]: http("https://mainnet.base.org"),
+    [base.id]: http("https://base-mainnet.public.blastapi.io"), // FIXED
   },
 });
