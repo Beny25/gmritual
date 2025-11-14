@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useReadContract, useWriteContract, simulateContract } from "wagmi";
 import { CONTRACT, ABI } from "../logic/contract";
 import { ethers } from "ethers";
 import { isCooldown, mark, autoReset } from "../logic/ritual";
 import CooldownTimer from "./CooldownTimer";
+import { config } from "../wagmi";
 
 export default function RitualButtons() {
   const { address, isConnected } = useAccount();
@@ -17,7 +18,6 @@ export default function RitualButtons() {
 
   const { writeContractAsync } = useWriteContract();
 
-  // 🔵 Reset cooldown daily jika address berubah
   useEffect(() => {
     if (address) autoReset(address);
   }, [address]);
@@ -31,45 +31,43 @@ export default function RitualButtons() {
     }
 
     try {
-      let gasLimit;
+      let request;
 
-      // 🔵 Try estimate gas
+      // 🔥 TRY SIMULATE GAS (Wagmi V2)
       try {
-        const estimateTx = await writeContractAsync({
+        const sim = await simulateContract(config, {
           address: CONTRACT,
           abi: ABI,
           functionName: "performRitual",
           args: [msg],
           value: BigInt(fee.toString()),
           account: address,
-          gas: undefined,
         });
 
-        gasLimit = estimateTx;
-      } catch (_) {
-        // 🔥 Fallback (wallet yang tidak support gas estimation)
-        gasLimit = BigInt(250000);
+        request = sim.request;
+
+      } catch (err) {
+        console.warn("Simulation failed → using fallback gas");
+
+        request = {
+          address: CONTRACT,
+          abi: ABI,
+          functionName: "performRitual",
+          args: [msg],
+          value: BigInt(fee.toString()),
+          gas: BigInt(250000),   // fallback REAL WORKING
+        };
       }
 
-      // 🔵 Actual transaction
-      const txHash = await writeContractAsync({
-        address: CONTRACT,
-        abi: ABI,
-        functionName: "performRitual",
-        args: [msg],
-        value: BigInt(fee.toString()),
-        gas: gasLimit,
-      });
+      // 🔥 SEND TX
+      const tx = await writeContractAsync(request);
 
-      // Save cooldown
       mark(type, address);
-
-      // Set type for countdown component
       setLastType(type);
 
     } catch (err) {
       console.error(err);
-      alert("Transaction failed / rejected.");
+      alert("Transaction rejected or failed.");
     }
   }
 
@@ -77,7 +75,6 @@ export default function RitualButtons() {
     <div className="ritual-wrapper" style={{ marginTop: 10 }}>
 
       <div className="row" style={{ marginBottom: 12 }}>
-
         <button
           className={`btn gm ${isCooldown("GM", address) ? "disabled" : ""}`}
           onClick={() => sendRitual("GM", "GM ⚡")}
@@ -100,16 +97,14 @@ export default function RitualButtons() {
         </button>
       </div>
 
-      {/* FEE */}
-      <div style={{ opacity: 0.7, marginBottom: 6 }}>
+      <div style={{ opacity: 0.7, marginBottom: 4 }}>
         Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
       </div>
 
-      {/* COOLDOWN TIMER */}
       <div style={{ marginTop: 10, textAlign: "center" }}>
         <CooldownTimer type={lastType} address={address} />
       </div>
 
     </div>
   );
-}
+          }
