@@ -19,6 +19,6 @@ export const config = createConfig({
   ],
 
   transports: {
-    [base.id]: http("https://mainnet.base.org"), // FIXED
+    [base.id]: http("https://developer-access-mainnet.base.org"), // FIXED
   },
 });
