@@ -103,17 +103,10 @@ return (
     <CooldownTimer type="SLEEP" address={address} />
 
     {/* FEE DISPLAY */}
-    <div style={{ opacity: 0.7, marginTop: 20 }}>
-      Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
-    </div>
-
-      <div style={{ marginTop: 10, textAlign: "center" }}>
-  {(isCooldown("GM", address) ||
-    isCooldown("GN", address) ||
-    isCooldown("SLEEP", address)) && (
-    <CooldownTimer />
-  )}
+<div style={{ opacity: 0.7, marginTop: 20 }}>
+  Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
 </div>
-    </div>
-  );
-                                            }
+
+</div>
+);
+                  
