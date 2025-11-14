@@ -104,8 +104,12 @@ export default function RitualButtons() {
       </div>
 
       <div style={{ marginTop: 10, textAlign: "center" }}>
-        <CooldownTimer type={lastType} address={address} />
-      </div>
+  {(isCooldown("GM", address) ||
+    isCooldown("GN", address) ||
+    isCooldown("SLEEP", address)) && (
+    <CooldownTimer />
+  )}
+</div>
     </div>
   );
                                             }
