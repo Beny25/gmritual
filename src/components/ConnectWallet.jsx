@@ -1,27 +1,26 @@
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useConnect } from "wagmi";
 
 export default function ConnectWallet() {
-  const { address, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const { connectors, connect } = useConnect();
-  const { disconnect } = useDisconnect();
 
-  if (isConnected)
-    return (
-      <div style={{ textAlign: "center" }}>
-        <p>Connected: {address.slice(0, 6)}...{address.slice(-4)}</p>
-        <button className="btn danger" onClick={() => disconnect()}>
-          Disconnect
-        </button>
-      </div>
-    );
+  if (isConnected) return null;
+
+  function handleConnect() {
+    // Urutan prioritas:
+    // 1. Injected wallet (MetaMask / Bitget / OKX / Trust)
+    // 2. WalletConnect
+    const injected = connectors.find(c => c.id === "injected");
+    const wc = connectors.find(c => c.id === "walletConnect");
+
+    if (injected) connect({ connector: injected });
+    else if (wc) connect({ connector: wc });
+    else alert("No wallet found");
+  }
 
   return (
-    <div style={{ textAlign: "center" }}>
-      {connectors.map(c => (
-        <button className="btn primary" key={c.uid} onClick={() => connect({ connector: c })}>
-          Connect Wallet ({c.name})
-        </button>
-      ))}
+    <div className="connect-btn" onClick={handleConnect}>
+      Connect Wallet
     </div>
   );
 }
