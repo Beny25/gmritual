@@ -1,43 +1,55 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { isCooldown } from "../logic/ritual";
 
-export default function CooldownTimer() {
-  const [timeLeft, setTimeLeft] = useState("");
+export default function CooldownTimer({ type, address }) {
+  const [remaining, setRemaining] = useState(null);
+
+  function getNextUTCReset() {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth();
+    const day = now.getUTCDate();
+
+    // Reset target = 00:00 UTC
+    return new Date(Date.UTC(year, month, day + 1, 0, 0, 0));
+  }
 
   useEffect(() => {
-    function update() {
+    if (!address) return;
+
+    // Kalau tidak cooldown, tidak tampilkan timer
+    if (!isCooldown(type, address)) {
+      setRemaining(null);
+      return;
+    }
+
+    const target = getNextUTCReset();
+
+    const interval = setInterval(() => {
       const now = new Date();
+      const diff = target - now;
 
-      // Reset ke 00:00 UTC besok
-      const reset = new Date(
-        Date.UTC(
-          now.getUTCFullYear(),
-          now.getUTCMonth(),
-          now.getUTCDate() + 1,
-          0, 0, 0
-        )
-      );
-
-      const diff = (reset - now) / 1000;
       if (diff <= 0) {
-        setTimeLeft("Ready!");
+        setRemaining(null);
+        clearInterval(interval);
         return;
       }
 
-      const h = Math.floor(diff / 3600);
-      const m = Math.floor((diff % 3600) / 60);
-      const s = Math.floor(diff % 60);
+      const h = Math.floor(diff / 1000 / 60 / 60);
+      const m = Math.floor((diff / 1000 / 60) % 60);
+      const s = Math.floor((diff / 1000) % 60);
 
-      setTimeLeft(`${h}h ${m}m ${s}s`);
-    }
+      setRemaining(`${h}h ${m}m ${s}s`);
+    }, 1000);
 
-    update();
-    const timer = setInterval(update, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    return () => clearInterval(interval);
+  }, [type, address]);
+
+  if (!remaining) return null;
 
   return (
-    <div style={{ opacity: 0.8, marginTop: 10 }}>
-      Next ritual in {timeLeft}
+    <div style={{ marginTop: 4, fontSize: 12, opacity: 0.8 }}>
+      Next ritual in {remaining}
     </div>
   );
 }
