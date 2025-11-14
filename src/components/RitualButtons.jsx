@@ -1,12 +1,13 @@
+import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
-import { useEffect } from "react";
 import { CONTRACT, ABI } from "../logic/contract";
-import { mark, isCooldown, autoReset } from "../logic/ritual";
-import CooldownTimer from "./CooldownTimer";
 import { ethers } from "ethers";
+import { isCooldown, mark, autoReset } from "../logic/ritual";
+import CooldownTimer from "./CooldownTimer";
 
 export default function RitualButtons() {
   const { address, isConnected } = useAccount();
+  const [lastType, setLastType] = useState(null);
 
   const { data: fee } = useReadContract({
     address: CONTRACT,
@@ -16,7 +17,7 @@ export default function RitualButtons() {
 
   const { writeContractAsync } = useWriteContract();
 
-  // 🔥 FIX: Auto reset ONLY after address loaded
+  // 🔥 Auto reset setiap change wallet
   useEffect(() => {
     if (address) autoReset(address);
   }, [address]);
@@ -24,8 +25,8 @@ export default function RitualButtons() {
   if (!isConnected || !address) return null;
 
   async function sendRitual(type, msg) {
-    // 🔥 FIX: cooldown only if address available
-    if (address && isCooldown(type, address)) {
+    //Cooldown Check
+    if (isCooldown(type, address)) {
       alert(`You already did ${type} today.`);
       return;
     }
@@ -40,50 +41,54 @@ export default function RitualButtons() {
         gas: BigInt(250000),
       });
 
-      // cooldown AFTER tx sent
+      // 🔥 Save cooldown only after TX
       mark(type, address);
+
+      // 🔥 Set jenis ritual untuk countdown
+      setLastType(type);
 
     } catch (err) {
       console.error(err);
-      alert("Transaction failed / rejected.");
+      alert("Transaction rejected or failed.");
     }
   }
 
   return (
-    <div className="ritual-wrapper" style={{ marginTop: 12 }}>
+    <div className="ritual-wrapper" style={{ marginTop: 10 }}>
 
-      {/* BUTTON AREA */}
-      <div className="row ritual-buttons" style={{ marginBottom: 10 }}>
+      {/* BUTTONS */}
+      <div className="row" style={{ marginBottom: 12 }}>
+
         <button
-          className={`btn gm ${address && isCooldown("GM", address) ? "disabled" : ""}`}
+          className={`btn gm ${isCooldown("GM", address) ? "disabled" : ""}`}
           onClick={() => sendRitual("GM", "GM ⚡")}
         >
           GM Ritual 🌞
         </button>
 
         <button
-          className={`btn gn ${address && isCooldown("GN", address) ? "disabled" : ""}`}
+          className={`btn gn ${isCooldown("GN", address) ? "disabled" : ""}`}
           onClick={() => sendRitual("GN", "GN 🌙")}
         >
           GN Ritual 🌙
         </button>
 
         <button
-          className={`btn sleep ${address && isCooldown("SLEEP", address) ? "disabled" : ""}`}
+          className={`btn sleep ${isCooldown("SLEEP", address) ? "disabled" : ""}`}
           onClick={() => sendRitual("SLEEP", "GoSleep 😴")}
         >
           GoSleep 😴
         </button>
       </div>
 
-      {/* Fee */}
-      <div style={{ opacity: 0.7, marginBottom: 6 }}>
+      {/* FEE */}
+      <div style={{ opacity: 0.7, marginBottom: 4 }}>
         Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
       </div>
 
-      {/* 🔥 COOLDOWN ALWAYS BELOW BUTTONS */}
-      <div className="cooldown" style={{ marginTop: 10, textAlign: "center" }}>
-        <CooldownTimer />
+      {/* 🔥 Countdown ALWAYS below buttons */}
+      <div style={{ marginTop: 8, textAlign: "center" }}>
+        <CooldownTimer type={lastType} address={address} />
       </div>
 
     </div>
