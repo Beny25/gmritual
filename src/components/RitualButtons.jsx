@@ -36,7 +36,6 @@ export default function RitualButtons() {
   if (!isConnected || !address || !walletClient) return null;
 
   async function sendRitual(type, msg) {
-  async function sendRitual(type, msg) {
   if (!fee) {
     alert("Contract fee not loaded yet.");
     return;
