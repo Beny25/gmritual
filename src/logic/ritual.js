@@ -1,32 +1,37 @@
-// Ambil tanggal UTC (bukan lokal)
+// === Cooldown Logic ===
+
 function getTodayUTC() {
   const now = new Date();
-  return now.toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+  return now.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
 export function mark(type, address) {
-  const key = `ritual_${address}_${type}`;
-  const today = getTodayUTC();
-  localStorage.setItem(key, today);
+  const key = `ritual_${type}_${address}`;
+  localStorage.setItem(key, getTodayUTC());
 }
 
 export function isCooldown(type, address) {
-  const key = `ritual_${address}_${type}`;
-  const stored = localStorage.getItem(key);
-  const today = getTodayUTC();
-  return stored === today; // cooldown aktif
+  const key = `ritual_${type}_${address}`;
+  const last = localStorage.getItem(key);
+  if (!last) return false;
+
+  return last === getTodayUTC(); // Cooldown sampai reset pukul 00 UTC
 }
 
-// Reset otomatis setiap hari UTC
-export function autoReset(address) {
-  const types = ["GM", "GN", "SLEEP"];
-  const today = getTodayUTC();
+export function getCooldownRemaining(type, address) {
+  if (!isCooldown(type, address)) return 0;
 
-  types.forEach((t) => {
-    const key = `ritual_${address}_${t}`;
-    const stored = localStorage.getItem(key);
-    if (stored && stored !== today) {
-      localStorage.removeItem(key); // RESET
+  const now = new Date();
+  const nextUTC = new Date(now);
+  nextUTC.setUTCHours(24, 0, 0, 0); // Reset jam 00 UTC berikutnya
+
+  return Math.max(0, nextUTC - now);
+}
+
+export function autoReset(address) {
+  ["GM", "GN", "SLEEP"].forEach((type) => {
+    if (!isCooldown(type, address)) {
+      localStorage.removeItem(`ritual_${type}_${address}`);
     }
   });
 }
