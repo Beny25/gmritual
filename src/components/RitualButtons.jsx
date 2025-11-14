@@ -36,52 +36,39 @@ export default function RitualButtons() {
   if (!isConnected || !address || !walletClient) return null;
 
   async function sendRitual(type, msg) {
-    if (!fee) {
-      alert("Fee not loaded yet.");
-      return;
+  async function sendRitual(type, msg) {
+  if (!fee) {
+    alert("Contract fee not loaded yet.");
+    return;
+  }
+
+  if (isCooldown(type, address)) {
+    alert(`You already did ${type} today.`);
+    return;
+  }
+
+  try {
+    // Pastikan di Base
+    if (chainId !== 8453) {
+      await walletClient.switchChain({ chainId: 8453 });
     }
 
-    if (isCooldown(type, address)) {
-      alert(`You already did ${type} today.`);
-      return;
-    }
+    const iface = new ethers.Interface(ABI);
 
-    setLoading(true);
+    await walletClient.sendTransaction({
+      to: CONTRACT,
+      data: iface.encodeFunctionData("performRitual", [msg]),
+      value: fee,
+      gas: 65000n, // aman dan cukup
+    });
 
-    try {
-      // Convert walletClient → ethers signer
-      const provider = new ethers.BrowserProvider(walletClient);
-      const signer = await provider.getSigner();
+    mark(type, address);
+    setLastType(type);
 
-      // Force Base chain
-      if (chainId !== 8453) {
-        await walletClient.switchChain({ chainId: 8453 });
-      }
-
-      // Encode calldata
-      const iface = new ethers.Interface(ABI);
-      const encoded = iface.encodeFunctionData("performRitual", [msg]);
-
-      // FIX GAS LIMIT → wallet estimasi gas-nya bug
-      const tx = {
-        to: CONTRACT,
-        data: encoded,
-        value: fee,
-        gas: 65000n        // FIXED & AMAN
-      };
-
-      // Send TX to wallet
-      await signer.sendTransaction(tx);
-
-      mark(type, address);
-      setLastType(type);
-
-    } catch (e) {
-      console.error(e);
-      alert("Transaction failed or rejected.");
-    }
-
-    setLoading(false);
+  } catch (err) {
+    console.error(err);
+    alert("Transaction failed or rejected.");
+  }
   }
 
   return (
