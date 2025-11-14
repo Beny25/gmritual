@@ -11,30 +11,46 @@ export default function ConnectWallet() {
 
   const [hasInjectedWallet, setHasInjectedWallet] = useState(false);
 
+  // 🔥 Detect Warpcast (Farcaster mobile app)
+  const isWarpcast =
+    typeof navigator !== "undefined" &&
+    navigator.userAgent.toLowerCase().includes("warpcast");
+
   useEffect(() => {
     // Detect ANY mobile wallet injected provider
     if (
       typeof window !== "undefined" &&
       (window.ethereum ||
-       window.okxwallet ||
-       window.bitkeep ||
-       window.bitgetWallet ||
-       window.trustwallet)
+        window.okxwallet ||
+        window.bitkeep ||
+        window.bitgetWallet ||
+        window.trustwallet)
     ) {
       setHasInjectedWallet(true);
     }
   }, []);
 
   function handleConnect() {
-    if (hasInjectedWallet && injected) {
-      // Force injected for mobile DApp browsers
-      connect({ connector: injected });
-    } else {
-      // Fallback for normal browsers
-      connect({ connector: walletConnect });
+    // 🔥 1. AUTO-CONNECT khusus Warpcast → tidak pakai modal
+    if (isWarpcast && walletConnect) {
+      connect({
+        connector: walletConnect,
+        chainId: 8453, // Base
+      });
+      return;
     }
+
+    // 🔥 2. Mobile DApp browsers → pakai injected
+    if (hasInjectedWallet && injected) {
+      connect({ connector: injected });
+      return;
+    }
+
+    // 🔥 3. Browser biasa → buka modal WalletConnect
+    connect({ connector: walletConnect });
   }
 
+  // If connected
   if (isConnected) {
     return (
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
@@ -48,6 +64,7 @@ export default function ConnectWallet() {
     );
   }
 
+  // Default connect button
   return (
     <button className="connect-btn" onClick={handleConnect}>
       Connect Wallet
