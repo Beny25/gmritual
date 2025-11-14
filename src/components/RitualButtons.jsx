@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useAccount, useReadContract, useWriteContract, simulateContract } from "wagmi";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import { simulateContract } from "wagmi/actions";
 import { CONTRACT, ABI } from "../logic/contract";
 import { ethers } from "ethers";
 import { isCooldown, mark, autoReset } from "../logic/ritual";
@@ -33,7 +34,7 @@ export default function RitualButtons() {
     try {
       let request;
 
-      // 🔥 TRY SIMULATE GAS (Wagmi V2)
+      // 🔵 TRY SIMULATE GAS (Wagmi V2)
       try {
         const sim = await simulateContract(config, {
           address: CONTRACT,
@@ -55,11 +56,11 @@ export default function RitualButtons() {
           functionName: "performRitual",
           args: [msg],
           value: BigInt(fee.toString()),
-          gas: BigInt(250000),   // fallback REAL WORKING
+          gas: BigInt(250000),
         };
       }
 
-      // 🔥 SEND TX
+      // 🔵 SEND TX
       const tx = await writeContractAsync(request);
 
       mark(type, address);
@@ -107,4 +108,4 @@ export default function RitualButtons() {
 
     </div>
   );
-          }
+}
