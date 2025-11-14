@@ -70,38 +70,42 @@ export default function RitualButtons() {
   }
   }
 
-  return (
-    <div className="ritual-wrapper" style={{ marginTop: 10 }}>
-      <div className="row" style={{ marginBottom: 12 }}>
+return (
+  <div className="ritual-wrapper" style={{ marginTop: 10 }}>
 
-        <button
-          className={`btn gm ${isCooldown("GM", address) ? "disabled" : ""}`}
-          disabled={loading || isCooldown("GM", address)}
-          onClick={() => sendRitual("GM", "GM ⚡")}
-        >
-          GM Ritual 🌞
-        </button>
+    {/* GM BUTTON */}
+    <button
+      className={`btn gm ${isCooldown("GM", address) ? "disabled" : ""}`}
+      onClick={() => sendRitual("GM", "GM ⚡")}
+    >
+      GM Ritual 🌞
+    </button>
+    <CooldownTimer type="GM" address={address} />
 
-        <button
-          className={`btn gn ${isCooldown("GN", address) ? "disabled" : ""}`}
-          disabled={loading || isCooldown("GN", address)}
-          onClick={() => sendRitual("GN", "GN 🌙")}
-        >
-          GN Ritual 🌙
-        </button>
 
-        <button
-          className={`btn sleep ${isCooldown("SLEEP", address) ? "disabled" : ""}`}
-          disabled={loading || isCooldown("SLEEP", address)}
-          onClick={() => sendRitual("SLEEP", "GoSleep 😴")}
-        >
-          GoSleep 😴
-        </button>
-      </div>
+    {/* GN BUTTON */}
+    <button
+      className={`btn gn ${isCooldown("GN", address) ? "disabled" : ""}`}
+      onClick={() => sendRitual("GN", "GN 🌙")}
+    >
+      GN Ritual 🌙
+    </button>
+    <CooldownTimer type="GN" address={address} />
 
-      <div style={{ opacity: 0.7 }}>
-        Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
-      </div>
+
+    {/* Sleep BUTTON */}
+    <button
+      className={`btn sleep ${isCooldown("SLEEP", address) ? "disabled" : ""}`}
+      onClick={() => sendRitual("SLEEP", "GoSleep 😴")}
+    >
+      GoSleep 😴
+    </button>
+    <CooldownTimer type="SLEEP" address={address} />
+
+    {/* FEE DISPLAY */}
+    <div style={{ opacity: 0.7, marginTop: 20 }}>
+      Fee: {fee ? ethers.formatEther(fee) : "..."} ETH
+    </div>
 
       <div style={{ marginTop: 10, textAlign: "center" }}>
   {(isCooldown("GM", address) ||
