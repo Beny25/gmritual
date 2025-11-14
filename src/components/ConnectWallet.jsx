@@ -1,50 +1,28 @@
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useConnect, useAccount, useDisconnect } from "wagmi";
 
 export default function ConnectWallet() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
 
-  // DETECT WALLET DOM
-  function getPreferredConnector() {
-    // Bitget / Bitkeep
-    if (window.bitkeep || window.bitget) {
-      const c = connectors.find(x => x.id.includes("bitget"));
-      if (c) return c;
-    }
+  const injected = connectors.find(c => c.id === "injected");
+  const walletConnect = connectors.find(c => c.id === "walletConnect");
 
-    // OKX Wallet
-    if (window.okxwallet) {
-      const c = connectors.find(x => x.id.includes("okx"));
-      if (c) return c;
+  function handleConnect() {
+    if (injected?.ready) {
+      connect({ connector: injected });
+    } else {
+      connect({ connector: walletConnect });
     }
-
-    // MetaMask
-    if (window.ethereum?.isMetaMask) {
-      const c = connectors.find(x => x.id === "injected");
-      if (c) return c;
-    }
-
-    // Trust Wallet
-    if (window.ethereum?.isTrust) {
-      const c = connectors.find(x => x.id.includes("trust"));
-      if (c) return c;
-    }
-
-    // fallback → injected pertama
-    return connectors.find(x => x.id === "injected") || connectors[0];
   }
-
-  const preferred = getPreferredConnector();
 
   if (isConnected) {
     return (
-      <div style={{ textAlign: "center" }}>
-        <div style={{ marginBottom: 10 }}>
-          Connected: {address.slice(0,6)}…{address.slice(-4)}
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+        <div style={{ marginBottom: "10px", opacity: 0.7 }}>
+          Connected: {address.slice(0, 6)}…{address.slice(-4)}
         </div>
-
-        <button className="connect-btn danger" onClick={() => disconnect()}>
+        <button className="connect-btn" onClick={() => disconnect()}>
           Disconnect
         </button>
       </div>
@@ -52,13 +30,8 @@ export default function ConnectWallet() {
   }
 
   return (
-    <div style={{ textAlign: "center" }}>
-      <button
-        className="connect-btn"
-        onClick={() => connect({ connector: preferred })}
-      >
-        Connect Wallet
-      </button>
-    </div>
+    <button className="connect-btn" onClick={handleConnect}>
+      Connect Wallet
+    </button>
   );
-    }
+}
