@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
-import { simulateContract, getConfig } from "wagmi/actions";
+import { useAccount, useReadContract, useWriteContract, useConfig } from "wagmi";
+import { simulateContract } from "wagmi/actions";
 import { CONTRACT, ABI } from "../logic/contract";
 import { ethers } from "ethers";
 import { isCooldown, mark, autoReset } from "../logic/ritual";
@@ -8,10 +8,9 @@ import CooldownTimer from "./CooldownTimer";
 
 export default function RitualButtons() {
   const { address, isConnected } = useAccount();
+  const wagmiConfig = useConfig();
   const { writeContractAsync } = useWriteContract();
   const [lastType, setLastType] = useState(null);
-
-  const wagmiConfig = getConfig();
 
   const { data: fee } = useReadContract({
     address: CONTRACT,
@@ -39,14 +38,13 @@ export default function RitualButtons() {
     try {
       let request;
 
-      // Try gas simulation
       try {
         const sim = await simulateContract(wagmiConfig, {
           address: CONTRACT,
           abi: ABI,
           functionName: "performRitual",
           args: [msg],
-          value: fee,              // Wagmi v2 expects bigint
+          value: fee,
           account: address,
         });
 
@@ -78,7 +76,6 @@ export default function RitualButtons() {
 
   return (
     <div className="ritual-wrapper" style={{ marginTop: 10 }}>
-      
       <div className="row" style={{ marginBottom: 12 }}>
         <button
           className={`btn gm ${isCooldown("GM", address) ? "disabled" : ""}`}
@@ -109,7 +106,6 @@ export default function RitualButtons() {
       <div style={{ marginTop: 10, textAlign: "center" }}>
         <CooldownTimer type={lastType} address={address} />
       </div>
-
     </div>
   );
-          }
+}
