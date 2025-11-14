@@ -4,21 +4,41 @@ import { injected, walletConnect } from "wagmi/connectors";
 
 export const config = createConfig({
   chains: [base],
+
   connectors: [
     injected(),
+
     walletConnect({
       projectId: import.meta.env.VITE_WC_PROJECT_ID,
+
       metadata: {
         name: "GMRitual",
         description: "GM Ritual App",
         url: "https://gmritual.vercel.app",
         icons: ["https://gmritual.vercel.app/icon.png"],
       },
+
       showQrModal: true,
+
+      qrModalOptions: {
+        themeMode: "dark",
+        mobileLinks: [
+          "metamask",
+          "okx",
+          "rainbow",
+          "trust",
+          "bitget",
+          "zerion",
+          "safepal",
+          "argent",
+          "tokenpocket",
+          "farcaster"   // 👉 WAJIB buat Warpcast detect wallet
+        ]
+      }
     }),
   ],
 
   transports: {
-    [base.id]: http("https://developer-access-mainnet.base.org"), // FIXED
+    [base.id]: http("https://developer-access-mainnet.base.org"),
   },
 });
