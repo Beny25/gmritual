@@ -1,37 +1,31 @@
-// === Cooldown Logic ===
+import { useEffect, useState } from "react";
+import { getCooldownRemaining } from "../logic/ritual";
 
-function getTodayUTC() {
-  const now = new Date();
-  return now.toISOString().slice(0, 10); // YYYY-MM-DD
-}
+export default function CooldownTimer({ type, address }) {
+  const [remain, setRemain] = useState(0);
 
-export function mark(type, address) {
-  const key = `ritual_${type}_${address}`;
-  localStorage.setItem(key, getTodayUTC());
-}
+  useEffect(() => {
+    if (!address || !type) return;
 
-export function isCooldown(type, address) {
-  const key = `ritual_${type}_${address}`;
-  const last = localStorage.getItem(key);
-  if (!last) return false;
-
-  return last === getTodayUTC(); // Cooldown sampai reset pukul 00 UTC
-}
-
-export function getCooldownRemaining(type, address) {
-  if (!isCooldown(type, address)) return 0;
-
-  const now = new Date();
-  const nextUTC = new Date(now);
-  nextUTC.setUTCHours(24, 0, 0, 0); // Reset jam 00 UTC berikutnya
-
-  return Math.max(0, nextUTC - now);
-}
-
-export function autoReset(address) {
-  ["GM", "GN", "SLEEP"].forEach((type) => {
-    if (!isCooldown(type, address)) {
-      localStorage.removeItem(`ritual_${type}_${address}`);
+    function tick() {
+      setRemain(getCooldownRemaining(type, address));
     }
-  });
+
+    tick();
+    const interval = setInterval(tick, 1000);
+
+    return () => clearInterval(interval);
+  }, [type, address]);
+
+  if (remain <= 0) return null;
+
+  const hours = Math.floor(remain / 3600000);
+  const mins = Math.floor((remain % 3600000) / 60000);
+  const secs = Math.floor((remain % 60000) / 1000);
+
+  return (
+    <div style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>
+      Next ritual in {hours}h {mins}m {secs}s
+    </div>
+  );
 }
