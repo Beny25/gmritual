@@ -46,13 +46,13 @@ export default function App() {
   </div>
 
   <div className="footer-follow">
-    👉 Follow us:
-    <a href="https://warpcast.com" target="_blank">Farcaster</a>
-    •
-    <a href="https://x.com" target="_blank">X (Twitter)</a>
-    •
-    <a href="https://github.com" target="_blank">GitHub</a>
-  </div>
+  👉 Follow us:&nbsp;
+  <a href="https://farcaster.xyz/banditi" target="_blank">Farcaster</a>
+  &nbsp;•&nbsp;
+  <a href="https://x.com/alidepok1" target="_blank">X (Twitter)</a>
+  &nbsp;•&nbsp;
+  <a href="https://github.com/Beny25" target="_blank">GitHub</a>
+</div>
 
   <div className="footer-copy">
     © 2025 GM Ritual Dashboard • On Base
