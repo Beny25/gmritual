@@ -34,21 +34,30 @@ export default function App() {
 
       {/* FOOTER HARUS DI SINI */}
       <footer className="footer">
-        🟦 Built with love by <strong>Bandit Squad</strong><br />
-        Contract: 
-        <a href="https://basescan.org/address/0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A" target="_blank">
-          Ritual Contract
-        </a>
-        <br /><br />
+  <div className="footer-title">
+    Built with love by <strong>Bandit Squad</strong>
+  </div>
 
-        👉 Follow us:
-        <a href="https://warpcast.com/banditi" target="_blank">Farcaster</a> • <a href="https://x.com/Alidepok1" target="_blank">X (Twitter)</a> • <a href="https://github.com/beny25/GMbandit" target="_blank">GitHub</a>
+  <div>
+    Contract:&nbsp;
+    <a href="https://basescan.org/address/0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A" target="_blank">
+      Ritual Contract
+    </a>
+  </div>
 
-        <br /><br />
-        <span style={{ fontSize: 12, opacity: 0.7 }}>
-          © 2025 GM Ritual Dashboard • On Base
-        </span>
-      </footer>
+  <div className="footer-follow">
+    👉 Follow us:
+    <a href="https://warpcast.com" target="_blank">Farcaster</a>
+    •
+    <a href="https://x.com" target="_blank">X (Twitter)</a>
+    •
+    <a href="https://github.com" target="_blank">GitHub</a>
+  </div>
+
+  <div className="footer-copy">
+    © 2025 GM Ritual Dashboard • On Base
+  </div>
+</footer>
     </>
   );
         }
