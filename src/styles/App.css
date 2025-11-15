@@ -64,17 +64,3 @@ button{cursor:pointer;border:0;border-radius:12px;padding:14px 18px;font-weight:
   align-items: center;
   gap: 8px;
 }
-
-.footer-title {
-  font-weight: 600;
-}
-
-.footer a {
-  color: #0c2340;
-  font-weight: 600;
-  text-decoration: underline;
-}
-
-.footer a:hover {
-  opacity: 0.75;
-}
