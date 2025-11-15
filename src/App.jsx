@@ -42,9 +42,7 @@ export default function App() {
         <br /><br />
 
         👉 Follow us:
-        <a href="https://warpcast.com/banditi" target="_blank">Farcaster</a>
-        <a href="https://x.com/Alidepok1" target="_blank">X (Twitter)</a>
-        <a href="https://github.com/beny25/GMbandit" target="_blank">GitHub</a>
+        <a href="https://warpcast.com/banditi" target="_blank">Farcaster</a> • <a href="https://x.com/Alidepok1" target="_blank">X (Twitter)</a> • <a href="https://github.com/beny25/GMbandit" target="_blank">GitHub</a>
 
         <br /><br />
         <span style={{ fontSize: 12, opacity: 0.7 }}>
