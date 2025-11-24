@@ -13,6 +13,11 @@ export default function ConnectWallet() {
   // State untuk deteksi injected wallet asli
   const [hasInjectedWallet, setHasInjectedWallet] = useState(false);
 
+  // 🔥 Deteksi Base App (penting!)
+  const isBaseApp =
+    typeof navigator !== "undefined" &&
+    navigator.userAgent.toLowerCase().includes("base wallet");
+
   // 🔥 Deteksi Warpcast (Farcaster Mini-App)
   const isWarpcast =
     typeof navigator !== "undefined" &&
@@ -23,13 +28,13 @@ export default function ConnectWallet() {
 
     const eth = window.ethereum;
 
-    // 🚫 STOP: Warpcast sering inject ethereum palsu → jangan dianggap wallet
+    // 🚫 Warpcast inject ethereum palsu → jangan dipakai
     if (isWarpcast) {
       setHasInjectedWallet(false);
       return;
     }
 
-    // ✔ Deteksi wallet injected beneran (MetaMask / OKX / Bitget / Trust / TP)
+    // ✔ Injected wallet yang bener (OKX, MetaMask, Bitget, Trust)
     if (
       eth?.isMetaMask ||
       eth?.isOkxWallet ||
@@ -43,25 +48,44 @@ export default function ConnectWallet() {
     }
   }, [isWarpcast]);
 
-  // 🔥 LOGIKA FINAL CONNECT
+  // ===========================================================
+  // ⭐ Auto-connect khusus Base App
+  // ===========================================================
+  useEffect(() => {
+    if (isBaseApp && !isConnected && injected) {
+      connect({ connector: injected, chainId: 8453 });
+    }
+  }, [isBaseApp, isConnected, injected, connect]);
+
+  // ===========================================================
+  // 🔘 LOGIKA FINAL CONNECT BUTTON
+  // ===========================================================
   function handleConnect() {
-    // 1️⃣ Warpcast → SELALU pakai WalletConnect
+    // 1️⃣ Base App → selalu injected (tanpa modal)
+    if (isBaseApp && injected) {
+      connect({ connector: injected, chainId: 8453 });
+      return;
+    }
+
+    // 2️⃣ Warpcast → SELALU WalletConnect
     if (isWarpcast && walletConnect) {
       connect({ connector: walletConnect, chainId: 8453 });
       return;
     }
 
-    // 2️⃣ Mobile DApp Browser → pakai injected
+    // 3️⃣ Mobile DApp browser → injected
     if (hasInjectedWallet && injected) {
       connect({ connector: injected });
       return;
     }
 
-    // 3️⃣ Browser biasa → modal WalletConnect
+    // 4️⃣ Browser biasa → WalletConnect
     connect({ connector: walletConnect });
   }
 
-  // 🔵 Jika sudah connect
+  // ===========================================================
+  // 🔵 UI: Sudah connect
+  // ===========================================================
   if (isConnected) {
     return (
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
@@ -76,7 +100,9 @@ export default function ConnectWallet() {
     );
   }
 
-  // 🟦 Tombol connect default
+  // ===========================================================
+  // 🟦 UI: Tombol connect
+  // ===========================================================
   return (
     <button className="connect-btn" onClick={handleConnect}>
       Connect Wallet
