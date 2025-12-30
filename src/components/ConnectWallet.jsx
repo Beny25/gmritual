@@ -1,4 +1,3 @@
-// src/components/ConnectWallet.tsx
 import { useConnect, useAccount, useDisconnect } from "wagmi";
 import { useEffect, useState } from "react";
 
@@ -10,73 +9,52 @@ export default function ConnectWallet() {
   const injected = connectors.find(c => c.id === "injected");
   const walletConnect = connectors.find(c => c.id === "walletConnect");
 
-  const [hasInjectedWallet, setHasInjectedWallet] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
 
-  // 🔥 Detect Base App
   const isBaseApp =
     typeof navigator !== "undefined" &&
-    navigator.userAgent.toLowerCase().includes("basewallet"); // sesuaikan sesuai UA
+    navigator.userAgent.toLowerCase().includes("basewallet");
 
-  // 🔥 Detect Warpcast
   const isWarpcast =
     typeof navigator !== "undefined" &&
     navigator.userAgent.toLowerCase().includes("warpcast");
 
-  // 🔹 Detect injected wallets
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const eth = window.ethereum;
-
-    // 🚫 Warpcast inject palsu
-    if (isWarpcast) {
-      setHasInjectedWallet(false);
-      return;
+    if (eth?.isMetaMask || eth?.isOkxWallet || eth?.isBitget || eth?.isTrust) {
+      // ready injected wallet
     }
+  }, []);
 
-    if (
-      eth?.isMetaMask ||
-      eth?.isOkxWallet ||
-      eth?.isBitget ||
-      eth?.isTrust ||
-      window.okxwallet ||
-      window.bitgetWallet ||
-      window.trustwallet
-    ) {
-      setHasInjectedWallet(true);
-    }
-  }, [isWarpcast]);
-
-  // 🔹 Auto-connect Base App (kalau connector ready)
-  useEffect(() => {
-    if (isBaseApp && !isConnected && injected) {
-      connect({ connector: injected, chainId: 8453 });
-    }
-  }, [isBaseApp, isConnected, injected, connect]);
-
-  // 🔘 Handle Connect
-  function handleConnect() {
+  function handleConnectClick() {
+    // Base App → langsung connect
     if (isBaseApp && injected) {
       connect({ connector: injected, chainId: 8453 });
       return;
     }
 
+    // Warpcast → langsung WalletConnect
     if (isWarpcast && walletConnect) {
       connect({ connector: walletConnect, chainId: 8453 });
       return;
     }
 
-    if (hasInjectedWallet && injected) {
-      connect({ connector: injected });
-      return;
-    }
-
-    if (walletConnect) {
-      connect({ connector: walletConnect });
-    }
+    // Browser biasa → munculkan popup pilih connector
+    setShowPopup(true);
   }
 
-  // 🔵 UI Connected
+  function connectInjected() {
+    if (injected) connect({ connector: injected });
+    setShowPopup(false);
+  }
+
+  function connectWalletConnect() {
+    if (walletConnect) connect({ connector: walletConnect, chainId: 8453 });
+    setShowPopup(false);
+  }
+
   if (isConnected) {
     return (
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
@@ -90,10 +68,39 @@ export default function ConnectWallet() {
     );
   }
 
-  // 🟦 UI Connect button
   return (
-    <button className="connect-btn" onClick={handleConnect}>
-      Connect Wallet
-    </button>
+    <>
+      <button className="connect-btn" onClick={handleConnectClick}>
+        Connect Wallet
+      </button>
+
+      {showPopup && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "#fff",
+            padding: 20,
+            borderRadius: 12,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+            zIndex: 999,
+            textAlign: "center"
+          }}
+        >
+          <h3>Choose Wallet</h3>
+          <button onClick={connectInjected} style={{ margin: 5 }}>
+            Injected Wallet
+          </button>
+          <button onClick={connectWalletConnect} style={{ margin: 5 }}>
+            WalletConnect
+          </button>
+          <div style={{ marginTop: 10 }}>
+            <button onClick={() => setShowPopup(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
