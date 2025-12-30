@@ -1,3 +1,4 @@
+// src/components/ConnectWallet.tsx
 import { useConnect, useAccount, useDisconnect } from "wagmi";
 import { useEffect, useState } from "react";
 
@@ -16,76 +17,84 @@ export default function ConnectWallet() {
   // 🔥 Deteksi Base App (penting!)
   const isBaseApp =
     typeof navigator !== "undefined" &&
-    navigator.userAgent.toLowerCase().includes("base wallet");
+    navigator.userAgent.toLowerCase().includes("base");
 
   // 🔥 Deteksi Warpcast (Farcaster Mini-App)
   const isWarpcast =
     typeof navigator !== "undefined" &&
     navigator.userAgent.toLowerCase().includes("warpcast");
 
+  // 🔹 Deteksi injected wallet asli
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const eth = window.ethereum;
+    const eth = (window as any).ethereum;
 
-    // 🚫 Warpcast inject ethereum palsu → jangan dipakai
     if (isWarpcast) {
       setHasInjectedWallet(false);
       return;
     }
 
-    // ✔ Injected wallet yang bener (OKX, MetaMask, Bitget, Trust)
     if (
       eth?.isMetaMask ||
       eth?.isOkxWallet ||
       eth?.isBitget ||
       eth?.isTrust ||
-      window.okxwallet ||
-      window.bitgetWallet ||
-      window.trustwallet
+      (window as any).okxwallet ||
+      (window as any).bitgetWallet ||
+      (window as any).trustwallet
     ) {
       setHasInjectedWallet(true);
     }
   }, [isWarpcast]);
 
-  // ===========================================================
-  // ⭐ Auto-connect khusus Base App
-  // ===========================================================
+  // 🔹 Auto-connect Base App (tunggu injected siap)
   useEffect(() => {
-    if (isBaseApp && !isConnected && injected) {
-      connect({ connector: injected, chainId: 8453 });
+    if (!injected) return; // tunggu connector ready
+
+    console.log(
+      "[ConnectWallet] Auto-connect check:",
+      { isBaseApp, isConnected, injected }
+    );
+
+    if (isBaseApp && !isConnected) {
+      console.log("[ConnectWallet] Attempting auto-connect Base App...");
+      connect({ connector: injected, chainId: 8453 }).catch(err => {
+        console.error("[ConnectWallet] Auto-connect failed:", err);
+      });
     }
   }, [isBaseApp, isConnected, injected, connect]);
 
-  // ===========================================================
-  // 🔘 LOGIKA FINAL CONNECT BUTTON
-  // ===========================================================
+  // 🔹 Handle tombol connect
   function handleConnect() {
-    // 1️⃣ Base App → selalu injected (tanpa modal)
+    // 1️⃣ Base App → selalu injected
     if (isBaseApp && injected) {
       connect({ connector: injected, chainId: 8453 });
       return;
     }
 
-    // 2️⃣ Warpcast → SELALU WalletConnect
+    // 2️⃣ Warpcast → WalletConnect
     if (isWarpcast && walletConnect) {
       connect({ connector: walletConnect, chainId: 8453 });
       return;
     }
 
-    // 3️⃣ Mobile DApp browser → injected
+    // 3️⃣ Mobile DApp → injected
     if (hasInjectedWallet && injected) {
       connect({ connector: injected });
       return;
     }
 
     // 4️⃣ Browser biasa → WalletConnect
-    connect({ connector: walletConnect });
+    if (walletConnect) {
+      connect({ connector: walletConnect });
+      return;
+    }
+
+    console.warn("[ConnectWallet] No available connector to connect");
   }
 
-  // ===========================================================
-  // 🔵 UI: Sudah connect
-  // ===========================================================
+  // 🔵 UI: sudah connect
   if (isConnected) {
     return (
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
@@ -100,9 +109,7 @@ export default function ConnectWallet() {
     );
   }
 
-  // ===========================================================
-  // 🟦 UI: Tombol connect
-  // ===========================================================
+  // 🟦 UI: tombol connect
   return (
     <button className="connect-btn" onClick={handleConnect}>
       Connect Wallet
