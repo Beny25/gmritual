@@ -40,9 +40,10 @@ export default function ConnectWallet() {
       eth?.isOkxWallet ||
       eth?.isBitget ||
       eth?.isTrust ||
-      (window as any).okxwallet ||
-      (window as any).bitgetWallet ||
-      (window as any).trustwallet
+      window.okxwallet
+      window.bitgetWallet
+      window.trustwallet
+
     ) {
       setHasInjectedWallet(true);
     }
@@ -116,5 +117,6 @@ export default function ConnectWallet() {
     </button>
   );
 }
+
 
 
