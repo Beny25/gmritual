@@ -3,16 +3,11 @@ import { createConfig, http } from "wagmi";
 import { base } from "wagmi/chains";
 import { injected, walletConnect } from "wagmi/connectors";
 
-// ===========================================================
-// 🔹 Wagmi config
-// ===========================================================
 export const config = createConfig({
-  // 1️⃣ Chains
   chains: [base],
 
-  // 2️⃣ Connectors
   connectors: [
-    // 🔥 Mobile DApp browser (MetaMask, OKX, Bitget, TP, Trust, dsb)
+    // 🔥 Mobile DApp browsers (MetaMask, OKX, Bitget, TP, Trust, dsb)
     injected(),
 
     // 🔥 WalletConnect — termasuk Warpcast
@@ -37,13 +32,12 @@ export const config = createConfig({
           "safepal",
           "argent",
           "tokenpocket",
-          "farcaster", // <-- penting biar Warpcast muncul
+          "farcaster", // biar Warpcast muncul
         ],
       },
     }),
   ],
 
-  // 3️⃣ Transports
   transports: {
     [base.id]: http("https://developer-access-mainnet.base.org"),
   },
