@@ -28,7 +28,7 @@ export default function ConnectWallet() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    coconst eth = window.ethereum;
+    const eth = window.ethereum;
 
     if (isWarpcast) {
       setHasInjectedWallet(false);
@@ -116,4 +116,5 @@ export default function ConnectWallet() {
     </button>
   );
 }
+
 
