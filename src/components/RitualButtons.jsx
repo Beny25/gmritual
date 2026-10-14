@@ -7,48 +7,29 @@ import { ethers } from "ethers";
 
 export default function RitualButtons() {
   const { address, isConnected, chainId } = useAccount();
-  const { data: walletClient, isLoading: isClientLoading } = useWalletClient();
+  const { data: walletClient } = useWalletClient();
   const { switchChainAsync } = useSwitchChain();
 
-  const [fee, setFee] = useState(null);
-  const [lastType, setLastType] = useState(null);
+  // 1. Baca fee pake wagmi (lebih stabil dari ethers)
+  const { data: onchainFee } = useReadContract({
+    address: CONTRACT,
+    abi: ABI,
+    functionName: "fee",
+    chainId: 8453,
+  });
 
-  useEffect(() => {
-    async function loadFee() {
-      try {
-        // Pake RPC yang sama kayak wagmi biar konsisten
-        const provider = new ethers.JsonRpcProvider("https://developer-access-mainnet.base.org");
-        const c = new ethers.Contract(CONTRACT, ABI, provider);
-        const f = await c.fee();
-        setFee(f);
-      } catch (e) {
-        console.error("Fee load error:", e);
-      }
-    }
-    loadFee();
-  }, []);
+  // Fallback: 0.00000033 ETH = 330000000000 wei
+  // Biar kalau RPC error, tombol tetep bisa dipencet
+  const fee = onchainFee?? 330000000000n;
+  const feeReady = true; // selalu ready karena ada fallback
 
   useEffect(() => {
     if (address) autoReset(address);
   }, [address]);
 
-  // JANGAN return null karena walletClient — ini fix utama
   if (!isConnected ||!address) return null;
 
-  // Kalau client masih loading, tampilin loading, jangan ilangin card
-  if (isClientLoading) {
-    return <div style={{ marginTop: 10, opacity: 0.7 }}>Loading wallet...</div>;
-  }
-
   async function sendRitual(type, msg) {
-    if (!fee) {
-      alert("Contract fee not loaded yet. Coba refresh.");
-      return;
-    }
-    if (!walletClient) {
-      alert("Wallet belum ready, tunggu 2 detik lagi");
-      return;
-    }
     if (isCooldown(type, address)) {
       alert(`You already did ${type} today.`);
       return;
@@ -64,49 +45,54 @@ export default function RitualButtons() {
       await walletClient.sendTransaction({
         to: CONTRACT,
         data: iface.encodeFunctionData("performRitual", [msg]),
-        value: fee,
-        // gas: 65000n, // hapus aja biar auto estimate, 65k kekecilan buat Base
+        value: fee, // pake fee fallback
       });
 
       mark(type, address);
-      setLastType(type);
     } catch (err) {
       console.error(err);
-      alert("Transaction failed or rejected.");
+      alert("Transaction failed: " + (err?.shortMessage || err?.message));
     }
   }
+
+  const isGMDisabled = isCooldown("GM", address);
+  const isGNDisabled = isCooldown("GN", address);
+  const isSleepDisabled = isCooldown("SLEEP", address);
 
   return (
     <div className="ritual-wrapper" style={{ marginTop: 10 }}>
       <button
-        className={`btn gm ${isCooldown("GM", address)? "disabled" : ""}`}
+        className={`btn gm ${isGMDisabled? "disabled" : ""}`}
         onClick={() => sendRitual("GM", "GM ⚡")}
-        disabled={!fee ||!walletClient}
+        disabled={isGMDisabled}
+        style={{ pointerEvents: isGMDisabled? 'none' : 'auto' }}
       >
         GM Ritual 🌞
       </button>
       <CooldownTimer type="GM" address={address} />
 
       <button
-        className={`btn gn ${isCooldown("GN", address)? "disabled" : ""}`}
+        className={`btn gn ${isGNDisabled? "disabled" : ""}`}
         onClick={() => sendRitual("GN", "GN 🌙")}
-        disabled={!fee ||!walletClient}
+        disabled={isGNDisabled}
+        style={{ pointerEvents: isGNDisabled? 'none' : 'auto' }}
       >
         GN Ritual 🌙
       </button>
       <CooldownTimer type="GN" address={address} />
 
       <button
-        className={`btn sleep ${isCooldown("SLEEP", address)? "disabled" : ""}`}
+        className={`btn sleep ${isSleepDisabled? "disabled" : ""}`}
         onClick={() => sendRitual("SLEEP", "GoSleep 😴")}
-        disabled={!fee ||!walletClient}
+        disabled={isSleepDisabled}
+        style={{ pointerEvents: isSleepDisabled? 'none' : 'auto' }}
       >
         GoSleep 😴
       </button>
       <CooldownTimer type="SLEEP" address={address} />
 
       <div style={{ opacity: 0.7, marginTop: 20 }}>
-        Fee: {fee? ethers.formatEther(fee) : "loading..."} ETH
+        Fee: {ethers.formatEther(fee)} ETH {onchainFee? "" : "(fallback)"}
       </div>
     </div>
   );
