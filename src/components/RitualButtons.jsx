@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useAccount, useReadContract, useWalletClient, useSwitchChain } from "wagmi";
+import { useEffect } from "react";
+import { useAccount, useReadContract, useWriteContract, useSwitchChain } from "wagmi";
 import { CONTRACT, ABI } from "../logic/contract";
 import { isCooldown, mark, autoReset } from "../logic/ritual";
 import CooldownTimer from "./CooldownTimer";
@@ -7,10 +7,10 @@ import { ethers } from "ethers";
 
 export default function RitualButtons() {
   const { address, isConnected, chainId } = useAccount();
-  const { data: walletClient } = useWalletClient();
   const { switchChainAsync } = useSwitchChain();
+  const { writeContractAsync, isPending } = useWriteContract();
 
-  // 1. Baca fee pake wagmi (lebih stabil dari ethers)
+  // Baca fee onchain, fallback ke 0.00000033 ETH
   const { data: onchainFee } = useReadContract({
     address: CONTRACT,
     abi: ABI,
@@ -18,10 +18,7 @@ export default function RitualButtons() {
     chainId: 8453,
   });
 
-  // Fallback: 0.00000033 ETH = 330000000000 wei
-  // Biar kalau RPC error, tombol tetep bisa dipencet
-  const fee = onchainFee?? 330000000000n;
-  const feeReady = true; // selalu ready karena ada fallback
+  const fee = onchainFee?? 330000000000n; // 0.00000033 ETH
 
   useEffect(() => {
     if (address) autoReset(address);
@@ -40,24 +37,30 @@ export default function RitualButtons() {
         await switchChainAsync({ chainId: 8453 });
       }
 
-      const iface = new ethers.Interface(ABI);
-
-      await walletClient.sendTransaction({
-        to: CONTRACT,
-        data: iface.encodeFunctionData("performRitual", [msg]),
-        value: fee, // pake fee fallback
+      // PAKAI writeContractAsync - gak butuh walletClient lagi!
+      await writeContractAsync({
+        address: CONTRACT,
+        abi: ABI,
+        functionName: "performRitual",
+        args: [msg],
+        value: fee,
+        chainId: 8453,
       });
 
       mark(type, address);
+      alert(`${type} Ritual Success! ✨`);
+
     } catch (err) {
       console.error(err);
-      alert("Transaction failed: " + (err?.shortMessage || err?.message));
+      // Error yang lebih jelas
+      const msgError = err?.shortMessage || err?.details || err?.message || "Rejected";
+      alert(`TX Failed: ${msgError}`);
     }
   }
 
-  const isGMDisabled = isCooldown("GM", address);
-  const isGNDisabled = isCooldown("GN", address);
-  const isSleepDisabled = isCooldown("SLEEP", address);
+  const isGMDisabled = isCooldown("GM", address) || isPending;
+  const isGNDisabled = isCooldown("GN", address) || isPending;
+  const isSleepDisabled = isCooldown("SLEEP", address) || isPending;
 
   return (
     <div className="ritual-wrapper" style={{ marginTop: 10 }}>
@@ -65,9 +68,8 @@ export default function RitualButtons() {
         className={`btn gm ${isGMDisabled? "disabled" : ""}`}
         onClick={() => sendRitual("GM", "GM ⚡")}
         disabled={isGMDisabled}
-        style={{ pointerEvents: isGMDisabled? 'none' : 'auto' }}
       >
-        GM Ritual 🌞
+        {isPending? "Processing..." : "GM Ritual 🌞"}
       </button>
       <CooldownTimer type="GM" address={address} />
 
@@ -75,9 +77,8 @@ export default function RitualButtons() {
         className={`btn gn ${isGNDisabled? "disabled" : ""}`}
         onClick={() => sendRitual("GN", "GN 🌙")}
         disabled={isGNDisabled}
-        style={{ pointerEvents: isGNDisabled? 'none' : 'auto' }}
       >
-        GN Ritual 🌙
+        {isPending? "Processing..." : "GN Ritual 🌙"}
       </button>
       <CooldownTimer type="GN" address={address} />
 
@@ -85,9 +86,8 @@ export default function RitualButtons() {
         className={`btn sleep ${isSleepDisabled? "disabled" : ""}`}
         onClick={() => sendRitual("SLEEP", "GoSleep 😴")}
         disabled={isSleepDisabled}
-        style={{ pointerEvents: isSleepDisabled? 'none' : 'auto' }}
       >
-        GoSleep 😴
+        {isPending? "Processing..." : "GoSleep 😴"}
       </button>
       <CooldownTimer type="SLEEP" address={address} />
 
