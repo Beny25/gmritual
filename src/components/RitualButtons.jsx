@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { useAccount, useReadContract, useWriteContract, useSwitchChain, useBalance } from "wagmi";
+import { useAccount, useReadContract, useWriteContract, useSwitchChain, useBalance, usePublicClient } from "wagmi";
 import { CONTRACT, ABI } from "../logic/contract";
 import { isCooldown, mark, autoReset } from "../logic/ritual";
 import CooldownTimer from "./CooldownTimer";
 import { ethers } from "ethers";
-import { usePublicClient } from "wagmi";
 
 export default function RitualButtons() {
   const { address, isConnected, chainId } = useAccount();
@@ -13,7 +12,7 @@ export default function RitualButtons() {
   const publicClient = usePublicClient({ chainId: 8453 });
 
   const { data: balance } = useBalance({ address, chainId: 8453 });
-  const [gasEstimate, setGasEstimate] = useState(0n);
+  const [gasCost, setGasCost] = useState(0n);
 
   const { data: onchainFee } = useReadContract({
     address: CONTRACT,
@@ -22,11 +21,11 @@ export default function RitualButtons() {
     chainId: 8453,
   });
 
-  const fee = onchainFee?? 330000000000n; // 0.00000033 ETH fallback
+  const fee = onchainFee?? 330000000000n; // 0.00000033
 
-  // Estimasi gas + ritual fee
+  // AUTO BACA GAS REAL DARI BASE RPC
   useEffect(() => {
-    async function estimate() {
+    async function getGas() {
       if (!address ||!publicClient) return;
       try {
         const gas = await publicClient.estimateContractGas({
@@ -37,50 +36,46 @@ export default function RitualButtons() {
           value: fee,
           account: address,
         });
-        // gas * gasPrice
-        const gasPrice = await publicClient.getGasPrice();
-        setGasEstimate(gas * gasPrice);
-      } catch {
-        // fallback kalau estimate gagal (karena transfer issue kemarin)
-        setGasEstimate(50000000000000n); // ~0.00005 ETH fallback gas
+        const price = await publicClient.getGasPrice();
+        const realCost = gas * price; // ini biasanya cuma 0.0000002 - 0.0000005 di Base
+        setGasCost(realCost);
+        console.log("Real gas:", ethers.formatEther(realCost));
+      } catch (e) {
+        // Kalau estimate gagal gara2 transfer issue kemarin, fallback murah
+        setGasCost(300000000000000n); // 0.0000003 ETH aja, bukan 0.00005
       }
     }
-    estimate();
+    getGas();
   }, [address, publicClient, fee]);
 
-  useEffect(() => {
-    if (address) autoReset(address);
-  }, [address]);
+  useEffect(() => { if (address) autoReset(address); }, [address]);
 
   if (!isConnected ||!address) return null;
 
-  const totalNeeded = fee + gasEstimate;
-  const hasEnoughBalance = balance? balance.value >= totalNeeded : false;
+  const total = fee + gasCost;
+  const isPoor = balance? balance.value < total : false;
 
   async function sendRitual(type, msg) {
     if (isCooldown(type, address)) {
-      alert(`You already did ${type} today. Cooldown 24h bro!`);
+      alert(`Udah ${type} hari ini bro, cooldown 24 jam!`);
       return;
     }
 
-    if (!hasEnoughBalance) {
+    // ALERT OTOMATIS KALO FEE + GAS GAK CUKUP
+    if (isPoor) {
       alert(
-        `ETH lu gak cukup bro!\n\n` +
-        `Butuh:\n` +
-        `- Ritual Fee: ${ethers.formatEther(fee)} ETH\n` +
-        `- Gas Fee: ~${ethers.formatEther(gasEstimate)} ETH\n` +
-        `- Total: ~${ethers.formatEther(totalNeeded)} ETH\n\n` +
-        `Saldo lu: ${balance? ethers.formatEther(balance.value) : "0"} ETH\n\n` +
-        `Top up dulu minimal ${ethers.formatEther(totalNeeded)} ETH di Base.`
+        `❌ ETH lu gak cukup bro!\n\n` +
+        `Ritual Fee: ${ethers.formatEther(fee)} ETH\n` +
+        `Gas: ~${ethers.formatEther(gasCost)} ETH (auto)\n` +
+        `Total butuh: ~${ethers.formatEther(total)} ETH\n` +
+        `Saldo lu: ${ethers.formatEther(balance.value)} ETH\n\n` +
+        `Isi dulu dikit di Base.`
       );
       return;
     }
 
     try {
-      if (chainId!== 8453) {
-        await switchChainAsync({ chainId: 8453 });
-      }
-
+      if (chainId!== 8453) await switchChainAsync({ chainId: 8453 });
       await writeContractAsync({
         address: CONTRACT,
         abi: ABI,
@@ -89,78 +84,43 @@ export default function RitualButtons() {
         value: fee,
         chainId: 8453,
       });
-
       mark(type, address);
-      alert(`${type} Ritual Success! ✨`);
+      alert(`${type} Success! ✨`);
     } catch (err) {
-      console.error(err);
-      const reason = err?.shortMessage || err?.cause?.shortMessage || err?.message || "Rejected";
-
-      if (reason.includes("Not enough ritual fee")) {
-        alert(`Fee kurang bro! Contract minta ${ethers.formatEther(fee)} ETH`);
-      } else if (reason.includes("Transfer") || reason.includes("execution reverted")) {
-        alert(
-          `TX Reverted! Ini masalah transfer ke collector (smart wallet).\n\n` +
-          `Fix cepat: ganti collector jadi EOA di BaseScan > setCollector.\n` +
-          `Detail: ${reason}`
-        );
-      } else {
-        alert(`TX Failed: ${reason}`);
-      }
+      const msgErr = err?.shortMessage || err?.message || "Rejected";
+      alert(`Gagal: ${msgErr}`);
     }
   }
 
-  const isGMDisabled = isCooldown("GM", address) || isPending;
-  const isGNDisabled = isCooldown("GN", address) || isPending;
-  const isSleepDisabled = isCooldown("SLEEP", address) || isPending;
-
   return (
     <div className="ritual-wrapper" style={{ marginTop: 10 }}>
-      {/* ALERT BALANCE DI ATAS TOMBOL */}
-      {!hasEnoughBalance && balance && (
+      {/* INI ALERT OTOMATISNYA - CUMA MUNCUL KALO GAK CUKUP */}
+      {isPoor && balance && (
         <div style={{
-          background: "#ff4444",
-          color: "white",
-          padding: "10px",
-          borderRadius: "8px",
-          marginBottom: "15px",
-          fontSize: "14px"
+          background: "#ff3333", color: "white", padding: "8px 12px",
+          borderRadius: "8px", marginBottom: "12px", fontSize: "13px", fontWeight: "bold"
         }}>
-          ⚠️ ETH gak cukup!<br/>
-          Saldo: {ethers.formatEther(balance.value).slice(0, 8)} ETH<br/>
-          Butuh: ~{ethers.formatEther(totalNeeded).slice(0, 8)} ETH (Fee + Gas)
+          ⚠️ Saldo kurang! Butuh ~{ethers.formatEther(total).slice(0, 10)} ETH, lu punya {ethers.formatEther(balance.value).slice(0, 10)} ETH
         </div>
       )}
 
-      <button
-        className={`btn gm ${isGMDisabled? "disabled" : ""}`}
-        onClick={() => sendRitual("GM", "GM ⚡")}
-        disabled={isGMDisabled}
-      >
-        {isPending? "Processing..." : "GM Ritual 🌞"}
+      <button className={`btn gm`} onClick={() => sendRitual("GM", "GM ⚡")} disabled={isCooldown("GM", address) || isPending}>
+        {isPending? "..." : "GM Ritual 🌞"}
       </button>
       <CooldownTimer type="GM" address={address} />
 
-      <button
-        className={`btn gn ${isGNDisabled? "disabled" : ""}`}
-        onClick={() => sendRitual("GN", "GN 🌙")}
-        disabled={isGNDisabled}
-      >
-        {isPending? "Processing..." : "GN Ritual 🌙"}
+      <button className={`btn gn`} onClick={() => sendRitual("GN", "GN 🌙")} disabled={isCooldown("GN", address) || isPending}>
+        {isPending? "..." : "GN Ritual 🌙"}
       </button>
       <CooldownTimer type="GN" address={address} />
 
-      <button
-        className={`btn sleep ${isSleepDisabled? "disabled" : ""}`}
-        onClick={() => sendRitual("SLEEP", "GoSleep 😴")}
-        disabled={isSleepDisabled}
-      >
-        {isPending? "Processing..." : "GoSleep 😴"}
+      <button className={`btn sleep`} onClick={() => sendRitual("SLEEP", "GoSleep 😴")} disabled={isCooldown("SLEEP", address) || isPending}>
+        {isPending? "..." : "GoSleep 😴"}
       </button>
       <CooldownTimer type="SLEEP" address={address} />
 
-      <div style={{ opacity: 0.7, marginTop: 20, fontSize: "12px" }}>
-        Fee: {ethers.formatEther(fee)} ETH {onchainFee? "" : "(fallback)"} | Gas: ~{ethers.formatEther(gasEstimate).slice(0, 8)} | Saldo: {balance? ethers.formatEther(balance.value).slice(0, 8) : "0"}
+      <div style={{ opacity: 0.6, marginTop: 15, fontSize: "11px" }}>
+        Fee auto: {ethers.formatEther(fee)} + gas ~{ethers.formatEther(gasCost).slice(0, 10)} | Saldo: {balance? ethers.formatEther(balance.value).slice(0, 8) : "-"}
       </div>
     </div>
   );
