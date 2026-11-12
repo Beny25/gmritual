@@ -39,6 +39,6 @@ export const config = createConfig({
   ],
 
   transports: {
-    [base.id]: http("https://developer-access-mainnet.base.org"),
+    [base.id]: http("https://mainnet.base.org"),
   },
 });
